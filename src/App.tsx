@@ -1,11 +1,18 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { Chat } from '@/pages/Chat';
 import { History } from '@/pages/History';
 import { Settings } from '@/pages/Settings';
+import { initializeAuth } from '@/store/useAuthStore';
 
 function App() {
+  // Initialize Supabase auth on app load
+  useEffect(() => {
+    initializeAuth();
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

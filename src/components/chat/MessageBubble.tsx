@@ -7,9 +7,10 @@ interface MessageBubbleProps {
   message: ChatMessage;
   onConfirm?: (entry: ChatMessage['foodEntry']) => void;
   onEdit?: (entry: ChatMessage['foodEntry']) => void;
+  showCalories?: boolean;
 }
 
-export function MessageBubble({ message, onConfirm, onEdit }: MessageBubbleProps) {
+export function MessageBubble({ message, onConfirm, onEdit, showCalories }: MessageBubbleProps) {
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
 
@@ -53,6 +54,7 @@ export function MessageBubble({ message, onConfirm, onEdit }: MessageBubbleProps
                   entry={message.foodEntry}
                   onConfirm={() => onConfirm?.(message.foodEntry)}
                   onEdit={() => onEdit?.(message.foodEntry)}
+                  showCalories={showCalories}
                 />
               </div>
             )}

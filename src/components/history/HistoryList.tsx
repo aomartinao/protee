@@ -10,10 +10,11 @@ interface HistoryListProps {
   entries: FoodEntry[];
   goals: Map<string, number>;
   defaultGoal: number;
+  calorieTrackingEnabled?: boolean;
   onDelete: (id: number) => void;
 }
 
-export function HistoryList({ entries, goals, defaultGoal, onDelete }: HistoryListProps) {
+export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnabled, onDelete }: HistoryListProps) {
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, DailyStats>();
 
@@ -28,6 +29,7 @@ export function HistoryList({ entries, goals, defaultGoal, onDelete }: HistoryLi
         groups.set(entry.date, {
           date: entry.date,
           totalProtein: 0,
+          totalCalories: 0,
           goal,
           entries: [],
           goalMet: false,
@@ -37,6 +39,7 @@ export function HistoryList({ entries, goals, defaultGoal, onDelete }: HistoryLi
       const stats = groups.get(entry.date)!;
       stats.entries.push(entry);
       stats.totalProtein += entry.protein;
+      stats.totalCalories += entry.calories || 0;
       stats.goalMet = stats.totalProtein >= stats.goal;
     }
 
@@ -69,6 +72,9 @@ export function HistoryList({ entries, goals, defaultGoal, onDelete }: HistoryLi
             </div>
             <span className="text-sm text-muted-foreground">
               {day.totalProtein}g / {day.goal}g
+              {calorieTrackingEnabled && day.totalCalories > 0 && (
+                <span className="ml-2 text-amber-600">· {day.totalCalories} kcal</span>
+              )}
             </span>
           </div>
 
@@ -97,7 +103,12 @@ export function HistoryList({ entries, goals, defaultGoal, onDelete }: HistoryLi
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-primary">{entry.protein}g</span>
+                    <div className="text-right">
+                      <span className="font-bold text-primary">{entry.protein}g</span>
+                      {calorieTrackingEnabled && entry.calories && (
+                        <span className="text-xs text-amber-600 ml-1">· {entry.calories} kcal</span>
+                      )}
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"

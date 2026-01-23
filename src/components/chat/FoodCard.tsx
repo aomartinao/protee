@@ -9,6 +9,7 @@ interface FoodCardProps {
   onConfirm?: () => void;
   onEdit?: () => void;
   showActions?: boolean;
+  showCalories?: boolean;
 }
 
 export function FoodCard({
@@ -16,6 +17,7 @@ export function FoodCard({
   onConfirm,
   onEdit,
   showActions = true,
+  showCalories = false,
 }: FoodCardProps) {
   const confidenceVariant =
     entry.confidence === 'high'
@@ -34,6 +36,15 @@ export function FoodCard({
               {entry.protein}g
             </span>
             <span className="text-sm text-muted-foreground">protein</span>
+            {showCalories && entry.calories !== undefined && entry.calories > 0 && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-2xl font-bold text-amber-500">
+                  {entry.calories}
+                </span>
+                <span className="text-sm text-muted-foreground">kcal</span>
+              </>
+            )}
           </div>
         </div>
         {entry.confidence && (

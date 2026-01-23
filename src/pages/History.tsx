@@ -26,6 +26,7 @@ export function History() {
             entries={entries}
             goals={dailyGoals}
             defaultGoal={settings.defaultGoal}
+            calorieTrackingEnabled={settings.calorieTrackingEnabled}
             onDelete={deleteEntry}
           />
         </TabsContent>

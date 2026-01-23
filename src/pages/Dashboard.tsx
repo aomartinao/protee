@@ -8,8 +8,8 @@ export function Dashboard() {
   const { settings, updateSettings } = useSettings();
   const streak = useStreak(recentEntries, settings.defaultGoal);
 
-  const handleSaveGoal = async (goal: number) => {
-    await updateSettings({ defaultGoal: goal });
+  const handleSaveGoal = async (goal: number, calorieGoal?: number) => {
+    await updateSettings({ defaultGoal: goal, calorieGoal });
   };
 
   return (
@@ -17,12 +17,16 @@ export function Dashboard() {
       <div className="flex justify-end px-4 pt-2">
         <GoalSetter
           currentGoal={settings.defaultGoal}
+          currentCalorieGoal={settings.calorieGoal}
+          calorieTrackingEnabled={settings.calorieTrackingEnabled}
           onSave={handleSaveGoal}
         />
       </div>
       <DailyProgress
         entries={todayEntries}
         goal={settings.defaultGoal}
+        calorieGoal={settings.calorieGoal}
+        calorieTrackingEnabled={settings.calorieTrackingEnabled}
         streak={streak}
       />
     </div>

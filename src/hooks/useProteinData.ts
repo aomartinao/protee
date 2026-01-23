@@ -10,6 +10,7 @@ import {
   getAllDailyGoals,
 } from '@/db';
 import { useStore } from '@/store/useStore';
+import { useAuthStore, triggerSync } from '@/store/useAuthStore';
 import { getToday, getDateRange, formatDate } from '@/lib/utils';
 import type { FoodEntry, StreakInfo } from '@/types';
 import { subDays } from 'date-fns';
@@ -37,6 +38,8 @@ export function useRecentEntries(days: number = 30) {
 export function useDeleteEntry() {
   return useCallback(async (id: number) => {
     await deleteFoodEntry(id);
+    // Trigger sync after deletion
+    triggerSync();
   }, []);
 }
 
@@ -55,6 +58,7 @@ export function useDailyGoals(): Map<string, number> {
 
 export function useSettings() {
   const { settings, setSettings } = useStore();
+  const { syncSettings, user } = useAuthStore();
 
   // Load settings from IndexedDB on mount
   useEffect(() => {
@@ -70,8 +74,13 @@ export function useSettings() {
       setSettings(newSettings);
       const merged = { ...settings, ...newSettings };
       await saveUserSettings(merged);
+
+      // Sync to cloud if logged in
+      if (user) {
+        syncSettings(merged);
+      }
     },
-    [settings, setSettings]
+    [settings, setSettings, user, syncSettings]
   );
 
   return { settings, updateSettings };

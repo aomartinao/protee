@@ -1,10 +1,18 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { FoodEntry, UserSettings, DailyGoal } from '@/types';
+import type { FoodEntry, UserSettings, DailyGoal, ChatMessage } from '@/types';
+
+interface SyncMeta {
+  id?: number;
+  key: string;
+  value: string;
+}
 
 const db = new Dexie('ProteeDB') as Dexie & {
   foodEntries: EntityTable<FoodEntry, 'id'>;
   userSettings: EntityTable<UserSettings, 'id'>;
   dailyGoals: EntityTable<DailyGoal, 'id'>;
+  syncMeta: EntityTable<SyncMeta, 'id'>;
+  chatMessages: EntityTable<ChatMessage, 'id'>;
 };
 
 db.version(1).stores({
@@ -13,26 +21,81 @@ db.version(1).stores({
   dailyGoals: '++id, date',
 });
 
+// Version 2: Added calories field to foodEntries (optional field, no index changes needed)
+db.version(2).stores({
+  foodEntries: '++id, date, source, createdAt',
+  userSettings: '++id',
+  dailyGoals: '++id, date',
+});
+
+// Version 3: Added sync fields (syncId, updatedAt, deletedAt)
+// Note: syncId and updatedAt not indexed because they can be undefined in old entries
+db.version(3).stores({
+  foodEntries: '++id, date, source, createdAt',
+  userSettings: '++id',
+  dailyGoals: '++id, date',
+  syncMeta: '++id, key',  // Store sync metadata like lastSyncTime
+}).upgrade(tx => {
+  // Migrate existing entries to have sync fields
+  return tx.table('foodEntries').toCollection().modify(entry => {
+    if (!entry.syncId) {
+      entry.syncId = crypto.randomUUID();
+    }
+    if (!entry.updatedAt) {
+      entry.updatedAt = entry.createdAt || new Date();
+    }
+    // deletedAt stays undefined (not deleted)
+  });
+});
+
+// Version 4: Added chatMessages table for chat persistence and sync
+db.version(4).stores({
+  foodEntries: '++id, date, source, createdAt',
+  userSettings: '++id',
+  dailyGoals: '++id, date',
+  syncMeta: '++id, key',
+  chatMessages: '++id, syncId, timestamp',
+});
+
 export { db };
 
 // Helper functions
 export async function getEntriesForDate(date: string): Promise<FoodEntry[]> {
-  return db.foodEntries.where('date').equals(date).toArray();
+  const entries = await db.foodEntries.where('date').equals(date).toArray();
+  // Filter out soft-deleted entries
+  return entries.filter(e => !e.deletedAt);
 }
 
 export async function getEntriesForDateRange(startDate: string, endDate: string): Promise<FoodEntry[]> {
-  return db.foodEntries
+  const entries = await db.foodEntries
     .where('date')
     .between(startDate, endDate, true, true)
     .toArray();
+  // Filter out soft-deleted entries
+  return entries.filter(e => !e.deletedAt);
 }
 
 export async function addFoodEntry(entry: Omit<FoodEntry, 'id'>): Promise<number> {
-  const id = await db.foodEntries.add(entry as FoodEntry);
+  // Ensure sync fields are set
+  const entryWithSync = {
+    ...entry,
+    syncId: entry.syncId || crypto.randomUUID(),
+    updatedAt: entry.updatedAt || new Date(),
+    createdAt: entry.createdAt || new Date(),
+  };
+  const id = await db.foodEntries.add(entryWithSync as FoodEntry);
   return id as number;
 }
 
 export async function deleteFoodEntry(id: number): Promise<void> {
+  // Soft delete - mark as deleted but keep for sync
+  await db.foodEntries.update(id, {
+    deletedAt: new Date(),
+    updatedAt: new Date()
+  });
+}
+
+export async function hardDeleteFoodEntry(id: number): Promise<void> {
   return db.foodEntries.delete(id);
 }
 
@@ -54,18 +117,230 @@ export async function saveUserSettings(settings: Omit<UserSettings, 'id'>): Prom
 }
 
 export async function getDailyGoal(date: string): Promise<DailyGoal | undefined> {
-  return db.dailyGoals.where('date').equals(date).first();
+  const goals = await db.dailyGoals.where('date').equals(date).toArray();
+  // Return the first non-deleted goal
+  return goals.find(g => !g.deletedAt);
 }
 
-export async function setDailyGoal(date: string, goal: number): Promise<void> {
+export async function setDailyGoal(date: string, goal: number, calorieGoal?: number): Promise<void> {
   const existing = await getDailyGoal(date);
   if (existing?.id) {
-    await db.dailyGoals.update(existing.id, { goal });
+    await db.dailyGoals.update(existing.id, {
+      goal,
+      calorieGoal,
+      updatedAt: new Date(),
+    });
   } else {
-    await db.dailyGoals.add({ date, goal });
+    await db.dailyGoals.add({
+      date,
+      goal,
+      calorieGoal,
+      syncId: crypto.randomUUID(),
+      updatedAt: new Date(),
+    });
   }
 }
 
 export async function getAllDailyGoals(): Promise<DailyGoal[]> {
+  const goals = await db.dailyGoals.toArray();
+  // Filter out soft-deleted goals
+  return goals.filter(g => !g.deletedAt);
+}
+
+export async function getAllDailyGoalsForSync(): Promise<DailyGoal[]> {
   return db.dailyGoals.toArray();
+}
+
+export async function getDailyGoalBySyncId(syncId: string): Promise<DailyGoal | undefined> {
+  if (!syncId) return undefined;
+  const goals = await db.dailyGoals.toArray();
+  return goals.find(g => g.syncId === syncId);
+}
+
+export async function upsertDailyGoalBySyncId(goal: DailyGoal): Promise<void> {
+  if (!goal.syncId) {
+    goal.syncId = crypto.randomUUID();
+    await db.dailyGoals.add(goal);
+    return;
+  }
+  const existing = await getDailyGoalBySyncId(goal.syncId);
+  if (existing?.id) {
+    await db.dailyGoals.update(existing.id, goal);
+  } else {
+    await db.dailyGoals.add(goal);
+  }
+}
+
+// Sync metadata helpers
+export async function getSyncMeta(key: string): Promise<string | null> {
+  const meta = await db.syncMeta.where('key').equals(key).first();
+  return meta?.value ?? null;
+}
+
+export async function setSyncMeta(key: string, value: string): Promise<void> {
+  const existing = await db.syncMeta.where('key').equals(key).first();
+  if (existing?.id) {
+    await db.syncMeta.update(existing.id, { value });
+  } else {
+    await db.syncMeta.add({ key, value });
+  }
+}
+
+// Get all entries (including deleted) for sync
+export async function getAllEntriesForSync(): Promise<FoodEntry[]> {
+  return db.foodEntries.toArray();
+}
+
+// Get entries modified after a timestamp
+export async function getEntriesModifiedAfter(timestamp: Date): Promise<FoodEntry[]> {
+  // Can't use index query with potentially undefined updatedAt, filter manually
+  const entries = await db.foodEntries.toArray();
+  return entries.filter(e => e.updatedAt && e.updatedAt > timestamp);
+}
+
+// Get active (non-deleted) entries
+export async function getActiveEntries(): Promise<FoodEntry[]> {
+  const entries = await db.foodEntries.toArray();
+  return entries.filter(e => !e.deletedAt);
+}
+
+// Upsert entry by syncId (for sync)
+export async function upsertEntryBySyncId(entry: FoodEntry): Promise<void> {
+  if (!entry.syncId) {
+    // No syncId, just add as new
+    await db.foodEntries.add(entry);
+    return;
+  }
+  // Find existing by syncId (manual search since not indexed)
+  const existing = await getEntryBySyncId(entry.syncId);
+  if (existing?.id) {
+    await db.foodEntries.update(existing.id, entry);
+  } else {
+    await db.foodEntries.add(entry);
+  }
+}
+
+// Get entry by syncId (manual filter since syncId isn't indexed)
+export async function getEntryBySyncId(syncId: string): Promise<FoodEntry | undefined> {
+  if (!syncId) return undefined;
+  const entries = await db.foodEntries.toArray();
+  return entries.find(e => e.syncId === syncId);
+}
+
+// Helper to serialize dates for storage
+function serializeMessage(message: Omit<ChatMessage, 'id'>): Record<string, unknown> {
+  return {
+    ...message,
+    timestamp: message.timestamp instanceof Date ? message.timestamp.toISOString() : message.timestamp,
+    updatedAt: message.updatedAt instanceof Date ? message.updatedAt.toISOString() : message.updatedAt,
+    deletedAt: message.deletedAt instanceof Date ? message.deletedAt.toISOString() : message.deletedAt,
+    // Serialize foodEntry dates if present
+    foodEntry: message.foodEntry ? {
+      ...message.foodEntry,
+      createdAt: message.foodEntry.createdAt instanceof Date ? message.foodEntry.createdAt.toISOString() : message.foodEntry.createdAt,
+      updatedAt: message.foodEntry.updatedAt instanceof Date ? message.foodEntry.updatedAt?.toISOString() : message.foodEntry.updatedAt,
+      deletedAt: message.foodEntry.deletedAt instanceof Date ? message.foodEntry.deletedAt?.toISOString() : message.foodEntry.deletedAt,
+    } : undefined,
+  };
+}
+
+// Helper to deserialize dates from storage
+function deserializeMessage(stored: Record<string, unknown>): ChatMessage {
+  const foodEntry = stored.foodEntry as Record<string, unknown> | undefined;
+  return {
+    ...stored,
+    timestamp: stored.timestamp ? new Date(stored.timestamp as string) : new Date(),
+    updatedAt: stored.updatedAt ? new Date(stored.updatedAt as string) : undefined,
+    deletedAt: stored.deletedAt ? new Date(stored.deletedAt as string) : undefined,
+    foodEntry: foodEntry ? {
+      ...foodEntry,
+      createdAt: foodEntry.createdAt ? new Date(foodEntry.createdAt as string) : new Date(),
+      updatedAt: foodEntry.updatedAt ? new Date(foodEntry.updatedAt as string) : undefined,
+      deletedAt: foodEntry.deletedAt ? new Date(foodEntry.deletedAt as string) : undefined,
+    } as FoodEntry : undefined,
+  } as ChatMessage;
+}
+
+// Chat message helpers
+export async function addChatMessage(message: Omit<ChatMessage, 'id'>): Promise<number> {
+  const messageWithSync = {
+    ...message,
+    syncId: message.syncId || crypto.randomUUID(),
+    updatedAt: message.updatedAt || new Date(),
+  };
+  const serialized = serializeMessage(messageWithSync);
+  const id = await db.chatMessages.add(serialized as ChatMessage);
+  return id as number;
+}
+
+export async function getChatMessages(limit: number = 200): Promise<ChatMessage[]> {
+  // Use reverse() on id for reliable ordering (auto-increment = chronological)
+  const messages = await db.chatMessages
+    .reverse()
+    .limit(limit)
+    .toArray();
+  // Filter out soft-deleted messages, deserialize dates, return in chronological order
+  return messages
+    .filter(m => !m.deletedAt)
+    .reverse()
+    .map(m => deserializeMessage(m as unknown as Record<string, unknown>));
+}
+
+export async function updateChatMessage(id: number, updates: Partial<ChatMessage>): Promise<number> {
+  // Serialize any date fields in updates
+  const serializedUpdates: Record<string, unknown> = { ...updates };
+  if (updates.timestamp instanceof Date) {
+    serializedUpdates.timestamp = updates.timestamp.toISOString();
+  }
+  if (updates.updatedAt instanceof Date) {
+    serializedUpdates.updatedAt = updates.updatedAt.toISOString();
+  } else {
+    serializedUpdates.updatedAt = new Date().toISOString();
+  }
+  if (updates.deletedAt instanceof Date) {
+    serializedUpdates.deletedAt = updates.deletedAt.toISOString();
+  }
+  if (updates.foodEntry) {
+    serializedUpdates.foodEntry = {
+      ...updates.foodEntry,
+      createdAt: updates.foodEntry.createdAt instanceof Date ? updates.foodEntry.createdAt.toISOString() : updates.foodEntry.createdAt,
+      updatedAt: updates.foodEntry.updatedAt instanceof Date ? updates.foodEntry.updatedAt?.toISOString() : updates.foodEntry.updatedAt,
+      deletedAt: updates.foodEntry.deletedAt instanceof Date ? updates.foodEntry.deletedAt?.toISOString() : updates.foodEntry.deletedAt,
+    };
+  }
+  return db.chatMessages.update(id, serializedUpdates as Partial<ChatMessage>);
+}
+
+export async function getChatMessageBySyncId(syncId: string): Promise<ChatMessage | undefined> {
+  if (!syncId) return undefined;
+  const stored = await db.chatMessages.where('syncId').equals(syncId).first();
+  if (!stored) return undefined;
+  return deserializeMessage(stored as unknown as Record<string, unknown>);
+}
+
+export async function upsertChatMessageBySyncId(message: ChatMessage): Promise<void> {
+  const serialized = serializeMessage(message);
+  if (!message.syncId) {
+    await db.chatMessages.add(serialized as ChatMessage);
+    return;
+  }
+  const existing = await db.chatMessages.where('syncId').equals(message.syncId).first();
+  if (existing?.id) {
+    await db.chatMessages.update(existing.id, serialized as Partial<ChatMessage>);
+  } else {
+    await db.chatMessages.add(serialized as ChatMessage);
+  }
+}
+
+export async function getAllChatMessagesForSync(): Promise<ChatMessage[]> {
+  const messages = await db.chatMessages.toArray();
+  return messages.map(m => deserializeMessage(m as unknown as Record<string, unknown>));
+}
+
+export async function deleteChatMessage(id: number): Promise<void> {
+  // Soft delete - serialize dates
+  await db.chatMessages.update(id, {
+    deletedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  } as unknown as Partial<ChatMessage>);
 }

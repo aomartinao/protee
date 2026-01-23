@@ -1,43 +1,45 @@
 @import "tailwindcss";
 
 @theme {
-  /* Primary green colors */
-  --color-primary: #10b981;
-  --color-primary-50: #ecfdf5;
-  --color-primary-100: #d1fae5;
-  --color-primary-200: #a7f3d0;
-  --color-primary-300: #6ee7b7;
-  --color-primary-400: #34d399;
-  --color-primary-500: #10b981;
-  --color-primary-600: #059669;
-  --color-primary-700: #047857;
-  --color-primary-800: #065f46;
-  --color-primary-900: #064e3b;
+  /* Primary amber/yellow accent colors */
+  --color-primary: #f5b800;
+  --color-primary-50: #fffbeb;
+  --color-primary-100: #fef3c7;
+  --color-primary-200: #fde68a;
+  --color-primary-300: #fcd34d;
+  --color-primary-400: #fbbf24;
+  --color-primary-500: #f5b800;
+  --color-primary-600: #d97706;
+  --color-primary-700: #b45309;
+  --color-primary-800: #92400e;
+  --color-primary-900: #78350f;
 
-  /* Semantic colors for shadcn-style components */
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
+  /* Semantic colors - warm light theme */
+  --color-background: #f8f5f0;
+  --color-foreground: #1f2937;
   --color-card: #ffffff;
-  --color-card-foreground: #0f172a;
+  --color-card-foreground: #1f2937;
+  --color-card-dark: #2d2d2d;
+  --color-card-dark-foreground: #ffffff;
   --color-popover: #ffffff;
-  --color-popover-foreground: #0f172a;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #1e293b;
-  --color-muted: #f1f5f9;
-  --color-muted-foreground: #64748b;
-  --color-accent: #f1f5f9;
-  --color-accent-foreground: #1e293b;
+  --color-popover-foreground: #1f2937;
+  --color-primary-foreground: #1f2937;
+  --color-secondary: #f3f0eb;
+  --color-secondary-foreground: #1f2937;
+  --color-muted: #e8e4de;
+  --color-muted-foreground: #6b7280;
+  --color-accent: #f5b800;
+  --color-accent-foreground: #1f2937;
   --color-destructive: #ef4444;
   --color-destructive-foreground: #fafafa;
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #10b981;
+  --color-border: #e5e1db;
+  --color-input: #e5e1db;
+  --color-ring: #f5b800;
 
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --radius-lg: 0.75rem;
-  --radius-md: 0.5rem;
-  --radius-sm: 0.25rem;
+  --radius-lg: 1rem;
+  --radius-md: 0.75rem;
+  --radius-sm: 0.5rem;
 }
 
 @layer base {
@@ -72,22 +74,57 @@
   }
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-background: #0f172a;
-    --color-foreground: #f8fafc;
-    --color-card: #1e293b;
-    --color-card-foreground: #f8fafc;
-    --color-popover: #1e293b;
-    --color-popover-foreground: #f8fafc;
-    --color-secondary: #334155;
-    --color-secondary-foreground: #f8fafc;
-    --color-muted: #334155;
-    --color-muted-foreground: #94a3b8;
-    --color-accent: #334155;
-    --color-accent-foreground: #f8fafc;
-    --color-border: #334155;
-    --color-input: #334155;
+/* Utility classes */
+@layer utilities {
+  /* Clean card styles */
+  .card-white {
+    background: var(--color-card);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .card-dark {
+    background: var(--color-card-dark);
+    color: var(--color-card-dark-foreground);
+    border-radius: var(--radius-lg);
+  }
+
+  .card-accent {
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Button press animation */
+  .btn-press:active {
+    transform: scale(0.97);
+  }
+
+  /* Shimmer animation for progress */
+  @keyframes shimmer {
+    0% { filter: brightness(1); }
+    50% { filter: brightness(1.1); }
+    100% { filter: brightness(1); }
+  }
+
+  .shimmer-on-complete {
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Slide up fade animation */
+  @keyframes slide-up-fade {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-slide-up-fade {
+    animation: slide-up-fade 0.3s ease-out;
+  }
+
+  /* Floating nav - clean style */
+  .floating-nav {
+    background: var(--color-card);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   }
 }
