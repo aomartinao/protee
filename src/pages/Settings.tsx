@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, ExternalLink, Trash2, Zap } from 'lucide-react';
+import { version } from '../../package.json';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -194,7 +195,7 @@ export function Settings() {
         <CardContent className="text-sm text-muted-foreground space-y-2">
           <p>
             <strong>Protee</strong> - Your AI-powered protein tracker
-            <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded">v1.5.3</span>
+            <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded">v{version}</span>
           </p>
           <p>
             Track your daily protein intake by typing what you ate or taking photos
