@@ -850,7 +850,11 @@ export async function pushSettingsToCloud(userId: string, settings: UserSettings
         onConflict: 'user_id',
       });
 
-    return !error;
+    if (error) {
+      console.error('[Sync] Error pushing settings:', error);
+      return false;
+    }
+    return true;
   } catch {
     return false;
   }
@@ -865,9 +869,13 @@ export async function pullSettingsFromCloud(userId: string): Promise<UserSetting
       .from('user_settings')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) return null;
+    if (error) {
+      console.error('[Sync] Error pulling settings:', error);
+      return null;
+    }
+    if (!data) return null;
 
     return {
       defaultGoal: data.default_goal,
