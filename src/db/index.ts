@@ -269,7 +269,7 @@ export async function addChatMessage(message: Omit<ChatMessage, 'id'>): Promise<
     updatedAt: message.updatedAt || new Date(),
   };
   const serialized = serializeMessage(messageWithSync);
-  const id = await db.chatMessages.add(serialized as ChatMessage);
+  const id = await db.chatMessages.add(serialized as unknown as ChatMessage);
   return id as number;
 }
 
@@ -321,14 +321,14 @@ export async function getChatMessageBySyncId(syncId: string): Promise<ChatMessag
 export async function upsertChatMessageBySyncId(message: ChatMessage): Promise<void> {
   const serialized = serializeMessage(message);
   if (!message.syncId) {
-    await db.chatMessages.add(serialized as ChatMessage);
+    await db.chatMessages.add(serialized as unknown as ChatMessage);
     return;
   }
   const existing = await db.chatMessages.where('syncId').equals(message.syncId).first();
   if (existing?.id) {
-    await db.chatMessages.update(existing.id, serialized as Partial<ChatMessage>);
+    await db.chatMessages.update(existing.id, serialized as unknown as Partial<ChatMessage>);
   } else {
-    await db.chatMessages.add(serialized as ChatMessage);
+    await db.chatMessages.add(serialized as unknown as ChatMessage);
   }
 }
 
