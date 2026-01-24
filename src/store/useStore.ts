@@ -54,7 +54,9 @@ export const useStore = create<AppState>()(
           const dbSettings = await getUserSettings();
           if (dbSettings) {
             set({ settings: dbSettings });
-            console.log('[Store] Reloaded settings from IndexedDB');
+            console.log('[Store] Reloaded settings from IndexedDB:', dbSettings);
+          } else {
+            console.log('[Store] No settings in IndexedDB to reload');
           }
         } catch (err) {
           console.error('[Store] Failed to reload settings:', err);

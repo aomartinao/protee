@@ -165,14 +165,15 @@ export const useAuthStore = create<AuthState>()(
             syncError: result.error ?? null,
           });
 
-          // Reload messages from IndexedDB if any were pulled
-          if (result.success && (result.messagesPulled || 0) > 0) {
-            useStore.getState().reloadMessages();
-          }
+          // Reload data from IndexedDB after successful sync
+          if (result.success) {
+            // Always reload settings (they may have been pulled from cloud)
+            await useStore.getState().reloadSettings();
 
-          // Reload settings from IndexedDB after sync (settings may have been pulled from cloud)
-          if (result.success && result.settingsSynced) {
-            useStore.getState().reloadSettings();
+            // Reload messages if any were pulled
+            if ((result.messagesPulled || 0) > 0) {
+              useStore.getState().reloadMessages();
+            }
           }
 
           return result;

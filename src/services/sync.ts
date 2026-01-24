@@ -699,6 +699,8 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
 
     // Pull from cloud
     const cloudSettings = await pullSettingsFromCloud(userId);
+    console.log('[Sync] Cloud settings:', cloudSettings);
+    console.log('[Sync] Local settings:', localSettings);
 
     if (cloudSettings) {
       // Merge: cloud wins, but keep local API key if set
@@ -709,7 +711,9 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
 
       // Save merged settings locally
       await saveUserSettings(mergedSettings);
-      console.log('[Sync] Settings pulled and merged from cloud');
+      console.log('[Sync] Settings pulled and merged from cloud:', mergedSettings);
+    } else {
+      console.log('[Sync] No cloud settings found, keeping local');
     }
 
     // Push current settings to cloud (ensures cloud has latest)
