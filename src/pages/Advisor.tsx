@@ -120,9 +120,10 @@ export function Advisor() {
     favorites: [],
   });
 
-  // Message queue for typewriter effect
-  const [messageQueue, setMessageQueue] = useState<string[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
+  // Message queue for sequential typewriter messages
+  const messageQueueRef = useRef<string[]>([]);
+  const isProcessingRef = useRef(false);
+  const [queueVersion, setQueueVersion] = useState(0); // Trigger re-render when queue changes
 
   const isOnboarding = onboardingStep >= 0 && onboardingStep < ONBOARDING_STEPS.length;
   const currentStepData = isOnboarding ? ONBOARDING_STEPS[onboardingStep] : null;
@@ -148,70 +149,80 @@ export function Advisor() {
     };
   }, [goal, consumed, remaining, settings.dietaryPreferences, nickname]);
 
-  // Add message with loading state for typewriter
-  const addMessageWithTypewriter = useCallback((content: string, type: 'system' | 'assistant' = 'system') => {
+  // Process next message in queue
+  const processNextMessage = useCallback(() => {
+    if (isProcessingRef.current || messageQueueRef.current.length === 0) {
+      return;
+    }
+
+    isProcessingRef.current = true;
+    const content = messageQueueRef.current.shift()!;
     const syncId = crypto.randomUUID();
 
-    // Add loading message first
+    // Add loading message
     setMessages((prev) => [
       ...prev,
       {
         syncId,
-        type,
+        type: 'system' as const,
         content: '',
         isLoading: true,
         timestamp: new Date(),
       },
     ]);
 
-    // Short delay then show content (triggers typewriter)
+    // Show typing indicator briefly, then reveal content
     setTimeout(() => {
       setMessages((prev) =>
         prev.map((msg) =>
           msg.syncId === syncId ? { ...msg, isLoading: false, content } : msg
         )
       );
-    }, 400);
 
-    return syncId;
+      // Wait for typewriter to finish, then process next
+      const typingDuration = content.length * 12 + 300;
+      setTimeout(() => {
+        isProcessingRef.current = false;
+        setQueueVersion((v) => v + 1); // Trigger next message
+      }, typingDuration);
+    }, 500);
   }, []);
 
-  // Process message queue
-  useEffect(() => {
-    if (messageQueue.length > 0 && !isTyping) {
-      setIsTyping(true);
-      const nextMessage = messageQueue[0];
-      addMessageWithTypewriter(nextMessage);
+  // Queue messages for sequential display
+  const queueMessages = useCallback((messages: string[]) => {
+    messageQueueRef.current.push(...messages);
+    setQueueVersion((v) => v + 1);
+  }, []);
 
-      // Remove from queue after delay
-      setTimeout(() => {
-        setMessageQueue((prev) => prev.slice(1));
-        setIsTyping(false);
-      }, nextMessage.length * 12 + 600); // Approximate typing time
-    }
-  }, [messageQueue, isTyping, addMessageWithTypewriter]);
+  // Process queue when it changes
+  useEffect(() => {
+    processNextMessage();
+  }, [queueVersion, processNextMessage]);
+
+  // Check if currently typing (for UI state)
+  const isTyping = isProcessingRef.current || messageQueueRef.current.length > 0;
 
   // Initialize
   useEffect(() => {
     if (initialized) return;
+    setInitialized(true);
 
     if (!settings.advisorOnboarded) {
       // Start onboarding
       setOnboardingStep(0);
       const greeting = nickname ? `Hey ${nickname}! ` : 'Hey! ';
-      setMessageQueue([
+      queueMessages([
         `${greeting}Quick intro so I can give you useful suggestions.`,
         ONBOARDING_STEPS[0].question,
       ]);
     } else {
       // Normal welcome
       const greeting = nickname ? `Hey ${nickname}! ` : 'Hey! ';
-      addMessageWithTypewriter(
+      queueMessages([
         `${greeting}You have ${remaining}g protein left today. I can:\n\n• **Suggest your next meal** - based on time & preferences\n• **Evaluate a food choice** - "Is Greek yogurt good right now?"\n• **Analyze a menu photo** - I'll pick the best protein options\n• **Answer nutrition questions**\n\nWhat can I help with?`
-      );
+      ]);
     }
-    setInitialized(true);
-  }, [initialized, settings.advisorOnboarded, remaining, nickname, addMessageWithTypewriter]);
+  }, [initialized, settings.advisorOnboarded, remaining, nickname, queueMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -314,7 +325,7 @@ export function Advisor() {
       const messagesToQueue = [];
       if (reaction) messagesToQueue.push(reaction);
       messagesToQueue.push(ONBOARDING_STEPS[nextStep].question);
-      setMessageQueue(messagesToQueue);
+      queueMessages(messagesToQueue);
     } else {
       // Complete onboarding
       await updateSettings({
@@ -329,7 +340,7 @@ export function Advisor() {
       messagesToQueue.push(
         `${greeting}I'm all set! You have ${remaining}g protein left today.\n\nI can:\n• **Suggest your next meal**\n• **Evaluate a food choice**\n• **Analyze a menu photo**\n• **Answer nutrition questions**\n\n_You can update your preferences anytime in Settings._\n\nWhat sounds good?`
       );
-      setMessageQueue(messagesToQueue);
+      queueMessages(messagesToQueue);
     }
   };
 
@@ -344,7 +355,7 @@ export function Advisor() {
     });
 
     if (!settings.claudeApiKey) {
-      addMessageWithTypewriter('Please add your Claude API key in Settings to use Food Buddy.');
+      queueMessages(['Please add your Claude API key in Settings to use Food Buddy.']);
       return;
     }
 
@@ -401,7 +412,7 @@ export function Advisor() {
     });
 
     if (!settings.claudeApiKey) {
-      addMessageWithTypewriter('Please add your Claude API key in Settings to analyze menus.');
+      queueMessages(['Please add your Claude API key in Settings to analyze menus.']);
       return;
     }
 
@@ -444,7 +455,7 @@ export function Advisor() {
   };
 
   const showSelectedChips = currentStepData?.multiSelect && selectedItems.length > 0;
-  const showOnboardingControls = isOnboarding && !isTyping && messageQueue.length === 0;
+  const showOnboardingControls = isOnboarding && !isTyping;
 
   return (
     <div className="flex flex-col h-full">
