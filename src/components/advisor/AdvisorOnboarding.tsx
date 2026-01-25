@@ -100,10 +100,10 @@ function OnboardingMessage({ content, isUser }: OnboardingMessageProps) {
     >
       <div
         className={cn(
-          'max-w-[85%] rounded-2xl px-4 py-2',
+          'max-w-[85%]',
           isUser
-            ? 'bg-primary text-primary-foreground rounded-br-md'
-            : 'bg-muted text-foreground/80 text-sm'
+            ? 'rounded-2xl rounded-br-md px-4 py-2 bg-primary text-primary-foreground'
+            : 'text-foreground/80 text-sm py-1'
         )}
       >
         <p className="text-sm whitespace-pre-wrap">{content}</p>
