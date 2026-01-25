@@ -1,4 +1,4 @@
-import { useState, useRef, type ReactNode } from 'react';
+import { useState, useRef, useCallback, type ReactNode } from 'react';
 import { Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -20,173 +20,200 @@ interface SwipeableRowProps {
 }
 
 export function SwipeableRow({ children, onEdit, onDelete, className, itemName }: SwipeableRowProps) {
-  const [offsetX, setOffsetX] = useState(0);
-  const [isRevealed, setIsRevealed] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [translateX, setTranslateX] = useState(0);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
-  const currentXRef = useRef(0);
-  const hasMoved = useRef(false);
+  const startTranslateRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const velocityRef = useRef(0);
+  const lastXRef = useRef(0);
+  const lastTimeRef = useRef(0);
 
-  const ACTION_WIDTH = onEdit && onDelete ? 120 : 60;
-  const THRESHOLD = ACTION_WIDTH / 2;
-  const DELETE_TRIGGER_THRESHOLD = ACTION_WIDTH + 80;
+  const EDIT_WIDTH = 72;
+  const DELETE_WIDTH = 72;
+  const ACTION_WIDTH = (onEdit ? EDIT_WIDTH : 0) + (onDelete ? DELETE_WIDTH : 0);
+  const FULL_SWIPE_THRESHOLD = ACTION_WIDTH + 60;
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    startXRef.current = e.touches[0].clientX;
-    currentXRef.current = offsetX;
-    setIsDragging(true);
-    hasMoved.current = false;
-    setIsDeleting(false);
-  };
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!onEdit && !onDelete) return;
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
+    const touch = e.touches[0];
+    startXRef.current = touch.clientX;
+    startTranslateRef.current = translateX;
+    isDraggingRef.current = true;
+    lastXRef.current = touch.clientX;
+    lastTimeRef.current = Date.now();
+    velocityRef.current = 0;
+    setIsAnimating(false);
+  }, [translateX, onEdit, onDelete]);
 
-    const deltaX = e.touches[0].clientX - startXRef.current;
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDraggingRef.current) return;
 
-    if (Math.abs(deltaX) > 5) {
-      hasMoved.current = true;
+    const touch = e.touches[0];
+    const currentX = touch.clientX;
+    const currentTime = Date.now();
+
+    // Calculate velocity
+    const deltaTime = currentTime - lastTimeRef.current;
+    if (deltaTime > 0) {
+      velocityRef.current = (currentX - lastXRef.current) / deltaTime;
+    }
+    lastXRef.current = currentX;
+    lastTimeRef.current = currentTime;
+
+    const deltaX = currentX - startXRef.current;
+    let newTranslate = startTranslateRef.current + deltaX;
+
+    // Clamp: no swiping right past 0
+    if (newTranslate > 0) {
+      newTranslate = newTranslate * 0.3; // Rubber band effect
     }
 
-    let newOffset = currentXRef.current + deltaX;
-
-    // Only allow swiping left (negative values)
-    if (newOffset > 0) {
-      newOffset = 0;
+    // Rubber band effect when swiping past actions
+    if (newTranslate < -ACTION_WIDTH) {
+      const overswipe = Math.abs(newTranslate) - ACTION_WIDTH;
+      newTranslate = -(ACTION_WIDTH + overswipe * 0.4);
     }
 
-    // Apply rubber band effect past the action width
-    if (newOffset < -ACTION_WIDTH) {
-      const overswipe = Math.abs(newOffset) - ACTION_WIDTH;
-      const dampedOverswipe = Math.sqrt(overswipe) * 8;
-      newOffset = -(ACTION_WIDTH + dampedOverswipe);
+    setTranslateX(newTranslate);
+  }, [ACTION_WIDTH]);
 
-      // Check if we've reached delete trigger threshold
-      if (Math.abs(newOffset) > DELETE_TRIGGER_THRESHOLD) {
-        setIsDeleting(true);
-      } else {
-        setIsDeleting(false);
+  const handleTouchEnd = useCallback(() => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsAnimating(true);
+
+    const velocity = velocityRef.current;
+    const currentTranslate = translateX;
+
+    // Full swipe detection (swipe far + fast enough)
+    if (currentTranslate < -FULL_SWIPE_THRESHOLD || (velocity < -0.5 && currentTranslate < -ACTION_WIDTH / 2)) {
+      // Full swipe - trigger delete
+      if (onDelete) {
+        setShowDeleteDialog(true);
       }
-    }
-
-    setOffsetX(newOffset);
-
-    // Show actions when swiping
-    if (newOffset < -10) {
-      setIsRevealed(true);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-
-    // If we reached delete threshold, show confirmation
-    if (isDeleting && onDelete) {
-      setShowDeleteDialog(true);
-      // Reset position
-      setOffsetX(-ACTION_WIDTH);
-      setIsDeleting(false);
+      setTranslateX(-ACTION_WIDTH);
       return;
     }
 
-    // Snap to open or closed
-    if (offsetX < -THRESHOLD) {
-      setOffsetX(-ACTION_WIDTH);
-      setIsRevealed(true);
+    // Determine final position based on position and velocity
+    const projectedPosition = currentTranslate + velocity * 150;
+
+    if (projectedPosition < -ACTION_WIDTH / 2) {
+      // Snap open
+      setTranslateX(-ACTION_WIDTH);
     } else {
-      setOffsetX(0);
-      setIsRevealed(false);
+      // Snap closed
+      setTranslateX(0);
     }
-  };
+  }, [translateX, ACTION_WIDTH, FULL_SWIPE_THRESHOLD, onDelete]);
 
-  const handleClose = () => {
-    setOffsetX(0);
-    setIsRevealed(false);
-  };
+  const handleClose = useCallback(() => {
+    setIsAnimating(true);
+    setTranslateX(0);
+  }, []);
 
-  const handleClick = () => {
-    // Desktop click toggle - only if we didn't drag
-    if (!hasMoved.current && (onEdit || onDelete)) {
-      if (isRevealed) {
-        handleClose();
-      } else {
-        setOffsetX(-ACTION_WIDTH);
-        setIsRevealed(true);
-      }
+  const handleContentClick = useCallback((e: React.MouseEvent) => {
+    // If actions are open, close them
+    if (translateX < -10) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleClose();
+      return;
     }
-  };
 
-  const handleAction = (action: () => void) => {
-    action();
-    handleClose();
-  };
+    // Desktop: toggle actions on click
+    if (!isDraggingRef.current && (onEdit || onDelete)) {
+      e.preventDefault();
+      setIsAnimating(true);
+      setTranslateX(translateX === 0 ? -ACTION_WIDTH : 0);
+    }
+  }, [translateX, ACTION_WIDTH, onEdit, onDelete, handleClose]);
 
-  const handleDeleteClick = () => {
+  const handleEditClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEdit) {
+      onEdit();
+      handleClose();
+    }
+  }, [onEdit, handleClose]);
+
+  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     setShowDeleteDialog(true);
-  };
+  }, []);
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = useCallback(() => {
     setShowDeleteDialog(false);
     if (onDelete) {
-      // Animate out then delete
-      setOffsetX(-window.innerWidth);
+      setIsAnimating(true);
+      setTranslateX(-window.innerWidth);
       setTimeout(() => {
         onDelete();
-      }, 200);
+      }, 250);
     }
-  };
+  }, [onDelete]);
 
-  // Calculate the width of the delete button when in delete territory
-  const deleteButtonWidth = isDeleting
-    ? Math.abs(offsetX) - (onEdit ? 60 : 0)
-    : 60;
+  // Calculate action button reveal (0 to 1)
+  const revealProgress = Math.min(1, Math.abs(translateX) / ACTION_WIDTH);
+  const isFullSwipe = translateX < -FULL_SWIPE_THRESHOLD;
 
   return (
     <>
-      <div className={cn('relative overflow-hidden rounded-xl', className)}>
-        {/* Action buttons - only visible when revealed */}
-        {isRevealed && (
-          <div
-            className="absolute inset-y-0 right-0 flex"
-            style={{ opacity: Math.min(1, Math.abs(offsetX) / 60) }}
-          >
-            {onEdit && !isDeleting && (
-              <button
-                className="w-[60px] flex items-center justify-center bg-blue-500 text-white active:bg-blue-600"
-                onClick={() => handleAction(onEdit)}
-              >
-                <Edit2 className="h-5 w-5" />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                className={cn(
-                  "flex items-center justify-center text-white transition-all",
-                  isDeleting ? "bg-red-600" : "bg-destructive active:bg-destructive/90"
-                )}
-                style={{ width: `${deleteButtonWidth}px` }}
-                onClick={handleDeleteClick}
-              >
-                <Trash2 className="h-5 w-5" />
-                {isDeleting && <span className="ml-2 text-sm font-medium">Delete</span>}
-              </button>
-            )}
-          </div>
-        )}
+      <div
+        ref={containerRef}
+        className={cn('relative overflow-hidden rounded-xl touch-pan-y', className)}
+      >
+        {/* Action buttons - always rendered, revealed by translateX */}
+        <div className="absolute inset-y-0 right-0 flex">
+          {onEdit && !isFullSwipe && (
+            <button
+              className="flex items-center justify-center bg-blue-500 text-white active:bg-blue-600 transition-colors"
+              style={{
+                width: EDIT_WIDTH,
+                opacity: revealProgress,
+                transform: `translateX(${(1 - revealProgress) * 20}px)`
+              }}
+              onClick={handleEditClick}
+            >
+              <Edit2 className="h-5 w-5" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              className={cn(
+                "flex items-center justify-center text-white transition-colors",
+                isFullSwipe ? "bg-red-600" : "bg-destructive active:bg-red-600"
+              )}
+              style={{
+                width: isFullSwipe ? Math.abs(translateX) - (onEdit ? 0 : 0) : DELETE_WIDTH,
+                opacity: revealProgress,
+                transform: isFullSwipe ? 'none' : `translateX(${(1 - revealProgress) * 20}px)`
+              }}
+              onClick={handleDeleteClick}
+            >
+              <Trash2 className="h-5 w-5" />
+              {isFullSwipe && <span className="ml-2 font-medium">Delete</span>}
+            </button>
+          )}
+        </div>
 
         {/* Main content */}
         <div
-          className="relative bg-muted/50 cursor-pointer"
+          className="relative bg-muted/50"
           style={{
-            transform: `translateX(${offsetX}px)`,
-            transition: isDragging ? 'none' : 'transform 200ms ease-out'
+            transform: `translateX(${translateX}px)`,
+            transition: isAnimating ? 'transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          onClick={handleClick}
+          onClick={handleContentClick}
+          onTransitionEnd={() => setIsAnimating(false)}
         >
           {children}
         </div>

@@ -10,7 +10,7 @@ export function Header() {
   const getTitle = () => {
     switch (location.pathname) {
       case '/':
-        return ''; // Date shown in Dashboard's date navigation
+        return 'Protee';
       case '/chat':
         return 'Log Food';
       case '/history':

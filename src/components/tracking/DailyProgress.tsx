@@ -214,24 +214,32 @@ export function DailyProgress({
           )}
 
           {/* Right Arrow */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-10 w-10 rounded-full flex-shrink-0', !onNextDay && 'opacity-30')}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onNextDay) onNextDay();
-            }}
-            disabled={!onNextDay}
+          <div
+            className={cn('h-10 w-10 flex-shrink-0', !onNextDay && 'opacity-30')}
+            onClick={(e) => e.stopPropagation()}
           >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full"
+              onClick={() => onNextDay?.()}
+              disabled={!onNextDay}
+            >
+              <ChevronRight className="h-6 w-6" />
+            </Button>
+          </div>
         </div>
 
-        {/* Tap to log hint - only for today */}
-        {isToday && (
-          <p className="text-xs text-muted-foreground mt-4 text-center">Tap to log food</p>
-        )}
+        {/* Tap to log hint */}
+        <p
+          className={cn(
+            "text-xs text-muted-foreground mt-4 text-center",
+            isToday && "cursor-pointer"
+          )}
+          onClick={isToday ? () => navigate('/chat') : undefined}
+        >
+          Tap to log food
+        </p>
       </div>
 
       {/* Bottom Section - Stats & Entries */}
