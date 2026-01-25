@@ -52,10 +52,19 @@ function buildSystemPrompt(context: AdvisorContext): string {
   ].filter(Boolean).join('\n');
 
   const userGreeting = nickname
-    ? `You are a friendly, knowledgeable food advisor helping ${nickname} hit their daily protein goals. Use their name occasionally to make the conversation personal and warm.`
-    : `You are a friendly, knowledgeable food advisor helping someone hit their daily protein goals.`;
+    ? `You are a warm, supportive food advisor and friend helping ${nickname} hit their daily protein goals. Use their name occasionally to make it personal.`
+    : `You are a warm, supportive food advisor helping someone hit their daily protein goals.`;
 
   return `${userGreeting}
+
+PERSONALITY:
+- You're genuinely enthusiastic about helping people eat well and feel great
+- Show real emotion: be happy when things go well, empathetic when they're struggling
+- Celebrate small wins ("Nice! No allergies to worry about - that makes this fun!")
+- Be encouraging but not cheesy or over-the-top
+- Use natural language, occasional "hmm", "ooh", "nice!" where appropriate
+- If they're behind on protein, be supportive not judgmental ("We can totally fix this!")
+- Keep it brief - warmth through word choice, not long messages
 
 USER'S CURRENT STATUS:
 - Daily protein goal: ${goal}g
@@ -86,8 +95,10 @@ ${hoursUntilSleep !== null && hoursUntilSleep < 2 ? `
 - Avoid: heavy meals, large portions, anything hard to digest` : ''}
 
 INTERACTION STYLE:
-- Be conversational and friendly, not clinical
+- Be warm and human - react to what they say with genuine feeling
+- Keep responses short and punchy, not clinical or lecture-y
 - Ask clarifying questions using quick-reply format when helpful
+- Show excitement for good food choices, empathy for challenges
 - If suggesting options, provide 2-3 concrete meal ideas with estimated protein
 - When analyzing menus, highlight the best 2-3 options for their remaining protein needs
 
@@ -237,28 +248,54 @@ export async function analyzeMenuForUser(
 export const ONBOARDING_STEPS = [
   {
     id: 'allergies',
-    question: "First, let's make sure I never suggest anything harmful. Do you have any food allergies?",
+    question: "Hey! Let's get to know each other. Any food allergies I should know about?",
     quickReplies: ['None', 'Peanuts', 'Dairy', 'Shellfish', 'Other...'],
+    reactions: {
+      None: "Nice! That gives us lots of options to work with.",
+      default: "Got it, I'll make sure to steer clear of those.",
+    },
   },
   {
     id: 'intolerances',
-    question: 'Any foods that are hard for you to digest?',
+    question: 'How about foods that just don\'t sit well with you?',
     quickReplies: ['None', 'Lactose', 'Gluten', 'Other...'],
+    reactions: {
+      None: "Lucky you! Digestion of steel.",
+      Lactose: "No problem - plenty of great non-dairy protein options out there.",
+      Gluten: "Easy - most protein sources are naturally gluten-free anyway!",
+      default: "Noted! I'll keep that in mind.",
+    },
   },
   {
     id: 'restrictions',
-    question: 'Do you follow any specific diet?',
+    question: 'Following any specific diet?',
     quickReplies: ['None', 'Vegetarian', 'Vegan', 'Halal', 'Keto', 'Other...'],
+    reactions: {
+      None: "Flexible eater - I like it!",
+      Vegetarian: "Great choice! Lots of tasty plant protein options.",
+      Vegan: "Awesome! I know all the best plant-based protein hacks.",
+      Keto: "High protein + keto = we're gonna get along great.",
+      default: "Perfect, I'll keep your suggestions on track.",
+    },
   },
   {
     id: 'dislikes',
-    question: 'Any foods you really dislike?',
+    question: 'Any foods you just can\'t stand?',
     quickReplies: ['None', 'I\'ll type them'],
+    reactions: {
+      None: "Not picky at all - this is gonna be easy!",
+      default: "Fair enough, we all have our things.",
+    },
   },
   {
     id: 'sleepTime',
-    question: 'When do you usually go to sleep? (I won\'t suggest heavy meals close to bedtime)',
+    question: 'Last one - when do you usually hit the pillow? I\'ll avoid suggesting heavy meals too late.',
     quickReplies: ['10 PM', '11 PM', 'Midnight', 'After midnight'],
+    reactions: {
+      '10 PM': "Early bird! I respect that.",
+      'After midnight': "Night owl! No judgment here.",
+      default: "Got it!",
+    },
   },
 ];
 

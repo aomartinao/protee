@@ -14,43 +14,74 @@ interface OnboardingStep {
   quickReplies: string[];
   allowFreeText?: boolean;
   multiSelect?: boolean;
+  reactions: Record<string, string>;
 }
 
 const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'allergies',
-    question: "First, let's make sure I never suggest anything harmful. Do you have any food allergies?",
+    question: "Hey! Let's get to know each other. Any food allergies I should know about?",
     quickReplies: ['None', 'Peanuts', 'Tree nuts', 'Dairy', 'Shellfish'],
     allowFreeText: true,
     multiSelect: true,
+    reactions: {
+      None: "Nice! That gives us lots of options to work with.",
+      default: "Got it, I'll steer clear of those.",
+    },
   },
   {
     id: 'intolerances',
-    question: 'Any foods that are hard for you to digest?',
+    question: "How about foods that just don't sit well with you?",
     quickReplies: ['None', 'Lactose', 'Gluten', 'Fructose'],
     allowFreeText: true,
     multiSelect: true,
+    reactions: {
+      None: "Lucky you! Digestion of steel.",
+      Lactose: "No problem - plenty of great non-dairy protein out there.",
+      Gluten: "Easy - most protein sources are naturally gluten-free anyway!",
+      default: "Noted! I'll keep that in mind.",
+    },
   },
   {
     id: 'dietaryRestrictions',
-    question: 'Do you follow any specific diet?',
+    question: 'Following any specific diet?',
     quickReplies: ['None', 'Vegetarian', 'Vegan', 'Halal', 'Keto'],
     allowFreeText: true,
     multiSelect: true,
+    reactions: {
+      None: "Flexible eater - I like it!",
+      Vegetarian: "Great choice! Lots of tasty plant protein options.",
+      Vegan: "Awesome! I know all the best plant-based protein hacks.",
+      Keto: "High protein + keto = we're gonna get along great.",
+      default: "Perfect, I'll keep your suggestions on track.",
+    },
   },
   {
     id: 'dislikes',
-    question: 'Any foods you really dislike? (I\'ll try to avoid suggesting them)',
+    question: "Any foods you just can't stand?",
     quickReplies: ['None', 'Skip this'],
     allowFreeText: true,
     multiSelect: true,
+    reactions: {
+      None: "Not picky at all - this is gonna be easy!",
+      'Skip this': "No worries, we can figure that out as we go.",
+      default: "Fair enough, we all have our things.",
+    },
   },
   {
     id: 'sleepTime',
-    question: 'When do you usually go to sleep? (I won\'t suggest heavy meals close to bedtime)',
+    question: "Last one - when do you usually hit the pillow? I'll avoid heavy meals too late.",
     quickReplies: ['10 PM', '11 PM', 'Midnight', 'After midnight', 'Skip'],
     allowFreeText: false,
     multiSelect: false,
+    reactions: {
+      '10 PM': "Early bird! I respect that.",
+      '11 PM': "Solid schedule!",
+      'Midnight': "Night owl tendencies, got it.",
+      'After midnight': "True night owl! No judgment here.",
+      Skip: "No worries, I'll use my best judgment.",
+      default: "Got it!",
+    },
   },
 ];
 
@@ -104,7 +135,7 @@ export function AdvisorOnboarding({ onComplete }: AdvisorOnboardingProps) {
     if (messages.length === 0 && ONBOARDING_STEPS.length > 0) {
       setMessages([
         {
-          content: "Welcome to Food Advisor! Let me learn a bit about your dietary needs so I can give you personalized recommendations.",
+          content: "Hey there! I'm your Food Advisor. Quick intro so I can give you actually useful suggestions.",
           isUser: false,
         },
         {
@@ -151,6 +182,19 @@ export function AdvisorOnboarding({ onComplete }: AdvisorOnboardingProps) {
     }
   };
 
+  // Get appropriate reaction based on response
+  const getReaction = (step: OnboardingStep, response: string[]): string => {
+    const responseText = response.length === 0 ? 'None' : response[0];
+
+    // Check for specific reaction first
+    if (step.reactions[responseText]) {
+      return step.reactions[responseText];
+    }
+
+    // Fall back to default
+    return step.reactions.default || '';
+  };
+
   const processResponse = (response: string[]) => {
     const step = ONBOARDING_STEPS[currentStep];
 
@@ -187,26 +231,32 @@ export function AdvisorOnboarding({ onComplete }: AdvisorOnboardingProps) {
     setSelectedItems([]);
     setFreeText('');
 
+    // Get reaction for this response
+    const reaction = getReaction(step, response);
+
     // Move to next step
     const nextStep = currentStep + 1;
     if (nextStep < ONBOARDING_STEPS.length) {
       setCurrentStep(nextStep);
+      // Add reaction and next question
       setMessages((prev) => [
         ...prev,
+        ...(reaction ? [{ content: reaction, isUser: false }] : []),
         { content: ONBOARDING_STEPS[nextStep].question, isUser: false },
       ]);
     } else {
       // Onboarding complete
-      completeOnboarding(newPrefs);
+      completeOnboarding(newPrefs, reaction);
     }
   };
 
-  const completeOnboarding = async (finalPrefs: DietaryPreferences) => {
-    // Add completion message
+  const completeOnboarding = async (finalPrefs: DietaryPreferences, lastReaction?: string) => {
+    // Add reaction and completion message
     setMessages((prev) => [
       ...prev,
+      ...(lastReaction ? [{ content: lastReaction, isUser: false }] : []),
       {
-        content: "Perfect! I've saved your preferences. Now I can give you personalized meal recommendations. What would you like to eat?",
+        content: "Alright, I'm all set! Ready to help you crush your protein goals. What sounds good?",
         isUser: false,
       },
     ]);
