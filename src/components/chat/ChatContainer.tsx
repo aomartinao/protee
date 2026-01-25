@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
@@ -47,10 +47,63 @@ export function ChatContainer() {
   const [editRefinement, setEditRefinement] = useState('');
   const [isRefining, setIsRefining] = useState(false);
 
+  // State for food entries looked up by syncId (for messages pulled from cloud without foodEntry)
+  const [foodEntriesMap, setFoodEntriesMap] = useState<Map<string, FoodEntry>>(new Map());
+
   // Load messages from IndexedDB on mount
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
+
+  // Enrich messages with food entries when foodEntrySyncId exists but foodEntry is missing
+  // This happens when messages are synced from cloud (cloud only stores foodEntrySyncId, not foodEntry)
+  useEffect(() => {
+    const loadMissingFoodEntries = async () => {
+      const missingEntries: string[] = [];
+
+      for (const message of messages) {
+        // Message has a confirmed food entry link but no inline foodEntry data
+        if (message.foodEntrySyncId && !message.foodEntry && !foodEntriesMap.has(message.foodEntrySyncId)) {
+          missingEntries.push(message.foodEntrySyncId);
+        }
+      }
+
+      if (missingEntries.length === 0) return;
+
+      // Look up all missing entries
+      const newEntries = new Map(foodEntriesMap);
+      for (const syncId of missingEntries) {
+        const entry = await getEntryBySyncId(syncId);
+        if (entry) {
+          newEntries.set(syncId, entry);
+        }
+      }
+
+      if (newEntries.size !== foodEntriesMap.size) {
+        setFoodEntriesMap(newEntries);
+      }
+    };
+
+    loadMissingFoodEntries();
+  }, [messages, foodEntriesMap]);
+
+  // Create enriched messages that include looked-up food entries
+  const enrichedMessages = useMemo(() => {
+    return messages.map((message) => {
+      // If message already has foodEntry, use it
+      if (message.foodEntry) return message;
+
+      // If message has foodEntrySyncId, look it up in our map
+      if (message.foodEntrySyncId) {
+        const entry = foodEntriesMap.get(message.foodEntrySyncId);
+        if (entry) {
+          return { ...message, foodEntry: entry };
+        }
+      }
+
+      return message;
+    });
+  }, [messages, foodEntriesMap]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -464,10 +517,10 @@ export function ChatContainer() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-4">
-        {messages.map((message, index) => {
+        {enrichedMessages.map((message, index) => {
           // Check if we need a date separator
           const currentDate = getMessageDate(message);
-          const prevMessage = index > 0 ? messages[index - 1] : null;
+          const prevMessage = index > 0 ? enrichedMessages[index - 1] : null;
           const prevDate = prevMessage ? getMessageDate(prevMessage) : null;
           const showDateSeparator = prevDate && currentDate !== prevDate;
 
@@ -489,7 +542,7 @@ export function ChatContainer() {
                 onDelete={(entry) => handleDelete(entry, message.syncId)}
                 onCancel={(entry) => handleCancel(entry, message.syncId)}
                 showCalories={settings.calorieTrackingEnabled}
-                isLatestMessage={index === messages.length - 1}
+                isLatestMessage={index === enrichedMessages.length - 1}
               />
             </div>
           );

@@ -211,7 +211,7 @@ export function DailyProgress({
                 />
               </div>
             ) : (
-              <ProgressRing current={totalProtein} goal={goal} size={200} strokeWidth={12} />
+              <ProgressRing current={totalProtein} goal={goal} size={200} strokeWidth={12} label="Protein" />
             )}
           </div>
 
