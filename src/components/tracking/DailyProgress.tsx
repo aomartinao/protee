@@ -235,7 +235,7 @@ export function DailyProgress({
       </div>
 
       {/* Bottom Section - Stats & Entries */}
-      <div className="bg-card rounded-t-3xl shadow-lg flex flex-col min-h-[40vh]">
+      <div className="mt-6 bg-card rounded-t-3xl shadow-lg flex flex-col min-h-[40vh]">
         {/* Quick Stats Row */}
         <div className="flex items-center justify-around px-4 py-4 border-b border-border/50">
           {/* Streak */}

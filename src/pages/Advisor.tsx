@@ -207,6 +207,10 @@ export function Advisor() {
   useEffect(() => {
     if (!settingsLoaded) return; // Wait for settings to load from IndexedDB
     if (initialized) return;
+
+    // Don't start onboarding if advisorOnboarded is undefined (settings still loading)
+    if (settings.advisorOnboarded === undefined) return;
+
     setInitialized(true);
 
     if (!settings.advisorOnboarded) {
@@ -221,13 +225,17 @@ export function Advisor() {
         ONBOARDING_STEPS[0].question,
       ]);
     } else {
-      // Normal welcome
-      const greeting = nickname ? `Hey ${nickname}! ` : 'Hey! ';
-      queueMessages([
-        `${greeting}You have ${remaining}g protein left today. Ask me to suggest a meal, evaluate a food choice, or analyze a menu photo!`
-      ]);
+      // Returning user - show a simple greeting
+      const greetings = [
+        'How can I help today?',
+        'What can I do for you?',
+        "What's on your mind?",
+        'Ready when you are!',
+      ];
+      const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+      queueMessages([randomGreeting]);
     }
-  }, [settingsLoaded, initialized, settings.advisorOnboarded, remaining, nickname, queueMessages]);
+  }, [settingsLoaded, initialized, settings.advisorOnboarded, nickname, queueMessages, settings.advisorOnboardingStarted, updateSettings]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
