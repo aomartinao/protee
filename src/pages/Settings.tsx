@@ -213,7 +213,7 @@ export function Settings() {
                     min={500}
                     max={10000}
                     placeholder="2000"
-                    className="w-16 h-8 text-sm text-center"
+                    className="w-20 h-8 text-sm text-center"
                   />
                 )}
                 <Toggle

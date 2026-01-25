@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cloud, CloudOff, RefreshCw, Check, AlertCircle, LogOut, ChevronRight } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, Check, AlertCircle, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -23,7 +23,6 @@ export function SyncStatus() {
     isSyncing,
     syncError,
     syncData,
-    signOut,
   } = useAuthStore();
 
   const isConfigured = isSupabaseConfigured();
@@ -36,10 +35,6 @@ export function SyncStatus() {
   const handleForceSync = async () => {
     await clearSyncMeta();
     await syncData();
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
   };
 
   // Wrapper for consistent styling
@@ -147,26 +142,16 @@ export function SyncStatus() {
           >
             Force re-sync
           </button>
-          <div className="flex gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="h-7 px-3 text-xs"
-            >
-              <RefreshCw className={cn('h-3 w-3 mr-1', isSyncing && 'animate-spin')} />
-              Sync
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-muted-foreground hover:text-destructive"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-3 w-3" />
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="h-7 px-3 text-xs"
+          >
+            <RefreshCw className={cn('h-3 w-3 mr-1', isSyncing && 'animate-spin')} />
+            Sync
+          </Button>
         </div>
       </div>
     </SectionWrapper>
