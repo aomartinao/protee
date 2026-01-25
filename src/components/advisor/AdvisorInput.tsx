@@ -3,13 +3,13 @@ import { Camera, Send, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { compressImage } from '@/lib/utils';
 
-interface ChatInputProps {
+interface AdvisorInputProps {
   onSendText: (text: string) => void;
   onSendImage: (imageData: string) => void;
   disabled?: boolean;
 }
 
-export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps) {
+export function AdvisorInput({ onSendText, onSendImage, disabled }: AdvisorInputProps) {
   const [text, setText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -66,7 +66,7 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
             disabled={disabled}
           >
             <Camera className="h-5 w-5 text-muted-foreground" />
-            <span className="sr-only">Take photo</span>
+            <span className="sr-only">Take photo of menu</span>
           </Button>
 
           <Button
@@ -78,7 +78,7 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
             disabled={disabled}
           >
             <ImageIcon className="h-5 w-5 text-muted-foreground" />
-            <span className="sr-only">Upload image</span>
+            <span className="sr-only">Upload menu image</span>
           </Button>
         </div>
 
@@ -88,7 +88,7 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Describe your meal..."
+            placeholder="What should I eat?"
             disabled={disabled}
             className="w-full h-10 px-4 rounded-full bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
           />

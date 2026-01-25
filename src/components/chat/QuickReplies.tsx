@@ -18,8 +18,8 @@ export function QuickReplies({ replies, onSelect, disabled }: QuickRepliesProps)
           disabled={disabled}
           className={cn(
             'px-3 py-1.5 rounded-full text-sm font-medium',
-            'bg-primary/10 text-primary border border-primary/20',
-            'hover:bg-primary/20 active:bg-primary/30',
+            'bg-primary/15 text-foreground border border-primary/30',
+            'hover:bg-primary/25 active:bg-primary/35',
             'transition-colors',
             'disabled:opacity-50 disabled:cursor-not-allowed'
           )}

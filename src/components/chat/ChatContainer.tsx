@@ -2,21 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { MessageBubble } from './MessageBubble';
-import { ChatInput, type ChatMode } from './ChatInput';
-import { AdvisorOnboarding } from '@/components/advisor/AdvisorOnboarding';
+import { ChatInput } from './ChatInput';
 import { useStore } from '@/store/useStore';
-import { triggerSync } from '@/store/useAuthStore';
+import { triggerSync, useAuthStore } from '@/store/useAuthStore';
+import { getNickname } from '@/lib/nicknames';
 import { analyzeFood, refineAnalysis } from '@/services/ai/client';
-import {
-  getAdvisorSuggestion,
-  analyzeMenuForUser,
-  type AdvisorContext,
-  type AdvisorMessage,
-} from '@/services/ai/advisor';
 import { addFoodEntry } from '@/db';
 import { getToday } from '@/lib/utils';
-import { useRemainingProtein } from '@/hooks/useProteinData';
-import type { ChatMessage, FoodEntry, DietaryPreferences } from '@/types';
+import type { ChatMessage, FoodEntry } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -45,10 +38,8 @@ export function ChatContainer() {
     setPendingMessageSyncId,
   } = useStore();
 
-  const { remaining, goal, consumed } = useRemainingProtein();
-  const [chatMode, setChatMode] = useState<ChatMode>('log');
-  const [advisorHistory, setAdvisorHistory] = useState<AdvisorMessage[]>([]);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const { user } = useAuthStore();
+  const nickname = getNickname(user?.email);
 
   const [editingEntry, setEditingEntry] = useState<Partial<FoodEntry> | null>(null);
   const [editProtein, setEditProtein] = useState('');
@@ -57,26 +48,6 @@ export function ChatContainer() {
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
   const [editMessageSyncId, setEditMessageSyncId] = useState<string | null>(null);
-
-  // Build advisor context
-  const getAdvisorContext = (): AdvisorContext => {
-    const prefs: DietaryPreferences = settings.dietaryPreferences || {
-      allergies: [],
-      intolerances: [],
-      dietaryRestrictions: [],
-      dislikes: [],
-      favorites: [],
-    };
-
-    return {
-      goal,
-      consumed,
-      remaining,
-      currentTime: new Date(),
-      sleepTime: prefs.sleepTime,
-      preferences: prefs,
-    };
-  };
 
   // Load messages from IndexedDB on mount
   useEffect(() => {
@@ -94,15 +65,15 @@ export function ChatContainer() {
   // Add welcome message on first load (only after messages are loaded)
   useEffect(() => {
     if (messagesLoaded && messages.length === 0) {
+      const greeting = nickname ? `Hi ${nickname}! ` : "Hi! ";
       addMessage({
         syncId: crypto.randomUUID(),
         type: 'system',
-        content:
-          "Hi! I'm here to help you track protein. Type what you ate (like \"200g chicken breast\") or take a photo of your food or nutrition label.",
+        content: `${greeting}I'm here to help you track protein. Type what you ate (like "200g chicken breast") or take a photo of your food or nutrition label.`,
         timestamp: new Date(),
       });
     }
-  }, [messagesLoaded, messages.length, addMessage]);
+  }, [messagesLoaded, messages.length, addMessage, nickname]);
 
   const handleSendText = async (text: string) => {
     const userSyncId = crypto.randomUUID();
@@ -194,7 +165,7 @@ export function ChatContainer() {
     setIsAnalyzing(true);
 
     try {
-      const result = await analyzeFood(settings.claudeApiKey, { text });
+      const result = await analyzeFood(settings.claudeApiKey, { text, nickname });
 
       // Calculate consumedAt Date from parsed values
       let consumedAt: Date | undefined;
@@ -266,7 +237,7 @@ export function ChatContainer() {
     setIsAnalyzing(true);
 
     try {
-      const result = await analyzeFood(settings.claudeApiKey, { imageBase64: imageData });
+      const result = await analyzeFood(settings.claudeApiKey, { imageBase64: imageData, nickname });
 
       // Calculate consumedAt Date from parsed values
       let consumedAt: Date | undefined;
@@ -401,185 +372,6 @@ export function ChatContainer() {
     setEditMessageSyncId(null);
   };
 
-  // Handle advisor mode text messages
-  const handleAdvisorText = async (text: string) => {
-    const userSyncId = crypto.randomUUID();
-    await addMessage({
-      syncId: userSyncId,
-      type: 'user',
-      content: text,
-      timestamp: new Date(),
-    });
-
-    if (!settings.claudeApiKey) {
-      await addMessage({
-        syncId: crypto.randomUUID(),
-        type: 'system',
-        content:
-          'Please add your Claude API key in Settings to enable the Food Advisor.',
-        timestamp: new Date(),
-      });
-      return;
-    }
-
-    // Check if user needs onboarding
-    if (!settings.advisorOnboarded) {
-      // Will be handled by onboarding component
-      return;
-    }
-
-    const loadingSyncId = crypto.randomUUID();
-    await addMessage({
-      syncId: loadingSyncId,
-      type: 'assistant',
-      content: '',
-      isLoading: true,
-      timestamp: new Date(),
-    });
-
-    setIsAnalyzing(true);
-
-    try {
-      const context = getAdvisorContext();
-      const result = await getAdvisorSuggestion(
-        settings.claudeApiKey,
-        text,
-        context,
-        advisorHistory
-      );
-
-      // Update conversation history
-      setAdvisorHistory([
-        ...advisorHistory,
-        { role: 'user', content: text },
-        { role: 'assistant', content: result.message },
-      ]);
-
-      await updateMessage(loadingSyncId, {
-        isLoading: false,
-        content: result.message,
-        advisorQuickReplies: result.quickReplies,
-      });
-    } catch (error) {
-      await updateMessage(loadingSyncId, {
-        isLoading: false,
-        content: `Sorry, I couldn't get suggestions right now. ${error instanceof Error ? error.message : 'Please try again.'}`,
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  // Handle advisor mode image messages (menu analysis)
-  const handleAdvisorImage = async (imageData: string) => {
-    const userSyncId = crypto.randomUUID();
-    await addMessage({
-      syncId: userSyncId,
-      type: 'user',
-      content: '',
-      imageData,
-      timestamp: new Date(),
-    });
-
-    if (!settings.claudeApiKey) {
-      await addMessage({
-        syncId: crypto.randomUUID(),
-        type: 'system',
-        content:
-          'Please add your Claude API key in Settings to enable menu analysis.',
-        timestamp: new Date(),
-      });
-      return;
-    }
-
-    const loadingSyncId = crypto.randomUUID();
-    await addMessage({
-      syncId: loadingSyncId,
-      type: 'assistant',
-      content: '',
-      isLoading: true,
-      timestamp: new Date(),
-    });
-
-    setIsAnalyzing(true);
-
-    try {
-      const context = getAdvisorContext();
-      const result = await analyzeMenuForUser(
-        settings.claudeApiKey,
-        imageData,
-        context
-      );
-
-      await updateMessage(loadingSyncId, {
-        isLoading: false,
-        content: result.message,
-        advisorQuickReplies: result.quickReplies,
-      });
-    } catch (error) {
-      await updateMessage(loadingSyncId, {
-        isLoading: false,
-        content: `Sorry, I couldn't analyze that menu. ${error instanceof Error ? error.message : 'Please try again.'}`,
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  // Handle quick reply selection
-  const handleQuickReply = (reply: string) => {
-    if (chatMode === 'advisor') {
-      handleAdvisorText(reply);
-    }
-  };
-
-  // Handle mode change
-  const handleModeChange = (mode: ChatMode) => {
-    setChatMode(mode);
-
-    // Show advisor welcome message when switching to advisor mode
-    if (mode === 'advisor') {
-      // Reset advisor conversation history
-      setAdvisorHistory([]);
-
-      // Check if onboarding needed
-      if (!settings.advisorOnboarded) {
-        setShowOnboarding(true);
-        return;
-      }
-
-      // Add welcome message if needed
-      const hasAdvisorWelcome = messages.some(
-        (m) => m.type === 'system' && m.content.includes('Food Advisor')
-      );
-
-      if (!hasAdvisorWelcome) {
-        addMessage({
-          syncId: crypto.randomUUID(),
-          type: 'system',
-          content: `Food Advisor mode active! You have ${remaining}g protein remaining today. Ask me what to eat, or share a menu photo for recommendations.`,
-          timestamp: new Date(),
-        });
-      }
-    }
-  };
-
-  // Handle onboarding completion
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false);
-    // Add welcome message after onboarding
-    addMessage({
-      syncId: crypto.randomUUID(),
-      type: 'system',
-      content: `Great! Food Advisor is ready. You have ${remaining}g protein remaining today. What would you like to eat?`,
-      timestamp: new Date(),
-    });
-  };
-
-  // Route messages based on mode
-  const handleText = chatMode === 'advisor' ? handleAdvisorText : handleSendText;
-  const handleImage = chatMode === 'advisor' ? handleAdvisorImage : handleSendImage;
-
   // Show loading state while messages are being loaded
   if (!messagesLoaded) {
     return (
@@ -588,11 +380,6 @@ export function ChatContainer() {
         <p className="mt-2 text-sm text-muted-foreground">Loading messages...</p>
       </div>
     );
-  }
-
-  // Show onboarding if in advisor mode and not yet onboarded
-  if (showOnboarding) {
-    return <AdvisorOnboarding onComplete={handleOnboardingComplete} />;
   }
 
   return (
@@ -604,7 +391,6 @@ export function ChatContainer() {
             message={message}
             onConfirm={(entry) => handleConfirm(entry, message.syncId)}
             onEdit={(entry) => handleEdit(entry, message.syncId)}
-            onQuickReply={handleQuickReply}
             showCalories={settings.calorieTrackingEnabled}
             isLatestMessage={index === messages.length - 1}
           />
@@ -613,11 +399,9 @@ export function ChatContainer() {
       </div>
 
       <ChatInput
-        onSendText={handleText}
-        onSendImage={handleImage}
+        onSendText={handleSendText}
+        onSendImage={handleSendImage}
         disabled={isAnalyzing}
-        mode={chatMode}
-        onModeChange={handleModeChange}
       />
 
       {/* Edit Dialog */}

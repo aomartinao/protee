@@ -214,24 +214,32 @@ export function DailyProgress({
           )}
 
           {/* Right Arrow */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-10 w-10 rounded-full flex-shrink-0', !onNextDay && 'opacity-30')}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onNextDay) onNextDay();
-            }}
-            disabled={!onNextDay}
+          <div
+            className={cn('h-10 w-10 flex-shrink-0', !onNextDay && 'opacity-30')}
+            onClick={(e) => e.stopPropagation()}
           >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full"
+              onClick={() => onNextDay?.()}
+              disabled={!onNextDay}
+            >
+              <ChevronRight className="h-6 w-6" />
+            </Button>
+          </div>
         </div>
 
-        {/* Tap to log hint - only for today */}
-        {isToday && (
-          <p className="text-xs text-muted-foreground mt-4 text-center">Tap to log food</p>
-        )}
+        {/* Tap to log hint */}
+        <p
+          className={cn(
+            "text-xs text-muted-foreground mt-4 text-center",
+            isToday && "cursor-pointer"
+          )}
+          onClick={isToday ? () => navigate('/chat') : undefined}
+        >
+          Tap to log food
+        </p>
       </div>
 
       {/* Bottom Section - Stats & Entries */}
@@ -301,7 +309,11 @@ export function DailyProgress({
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {entries.length > 0 ? (
             <div className="space-y-1.5">
-              {entries.slice().reverse().map((entry) => (
+              {[...entries].sort((a, b) => {
+                const timeA = (a.consumedAt || a.createdAt).getTime();
+                const timeB = (b.consumedAt || b.createdAt).getTime();
+                return timeB - timeA; // Most recent first
+              }).map((entry) => (
                 <SwipeableRow
                   key={entry.id}
                   itemName={entry.foodName}

@@ -1,10 +1,11 @@
-import { Home, MessageCircle, Calendar, Settings } from 'lucide-react';
+import { Home, MessageCircle, Lightbulb, Calendar, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Today' },
   { to: '/chat', icon: MessageCircle, label: 'Log' },
+  { to: '/advisor', icon: Lightbulb, label: 'Buddy' },
   { to: '/history', icon: Calendar, label: 'History' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];

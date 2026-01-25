@@ -240,6 +240,9 @@ export function Settings() {
           />
         </SettingsSection>
 
+        {/* Food Buddy Section */}
+        <DietaryPreferencesSection />
+
         {/* AI Section */}
         <SettingsSection title="AI Analysis">
           <SettingsRow
@@ -262,9 +265,6 @@ export function Settings() {
             }
           />
         </SettingsSection>
-
-        {/* Food Advisor Section */}
-        <DietaryPreferencesSection />
 
         {/* Data Section */}
         <SettingsSection title="Data">

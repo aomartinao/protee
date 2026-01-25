@@ -23,7 +23,7 @@ export interface UserSettings {
   mpsTrackingEnabled?: boolean;      // Muscle Protein Synthesis hits tracking
   theme: 'light' | 'dark' | 'system';
   claudeApiKey?: string;     // user provides their own key
-  dietaryPreferences?: DietaryPreferences;  // for Food Advisor
+  dietaryPreferences?: DietaryPreferences;  // for Food Buddy
   advisorOnboarded?: boolean;               // whether user completed advisor onboarding
 }
 
