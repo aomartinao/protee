@@ -1,5 +1,6 @@
 import { Settings, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -10,7 +11,7 @@ export function Header() {
   const getTitle = () => {
     switch (location.pathname) {
       case '/':
-        return 'Today';
+        return format(new Date(), 'EEE, MMM d');
       case '/chat':
         return 'Log Food';
       case '/history':

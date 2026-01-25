@@ -110,15 +110,15 @@ export function PullToRefresh({
         >
           <RefreshCw
             className={cn(
-              'h-5 w-5 text-muted-foreground transition-all duration-200',
+              'h-5 w-5 text-muted-foreground transition-colors duration-200',
               isRefreshing && 'animate-spin text-primary',
               shouldTrigger && !isRefreshing && 'text-primary'
             )}
-            style={{
-              transform: isRefreshing
+            style={
+              isRefreshing
                 ? undefined
-                : `rotate(${progress * 180}deg)`,
-            }}
+                : { transform: `rotate(${progress * 180}deg)` }
+            }
           />
         </div>
       </div>
