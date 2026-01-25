@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
@@ -23,13 +22,11 @@ import { Loader2, Send, Sparkles } from 'lucide-react';
 
 export function ChatContainer() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
   const {
     messages,
     messagesLoaded,
     addMessage,
     updateMessage,
-    clearMessages,
     loadMessages,
     settings,
     isAnalyzing,
@@ -311,10 +308,6 @@ export function ChatContainer() {
 
       // Clear pending message tracking
       setPendingMessageSyncId(null);
-
-      // Clear messages and navigate to Today tab
-      clearMessages();
-      navigate('/');
     } catch (error) {
       await addMessage({
         syncId: crypto.randomUUID(),

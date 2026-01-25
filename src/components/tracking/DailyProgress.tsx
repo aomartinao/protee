@@ -133,9 +133,10 @@ export function DailyProgress({
     setIsSwiping(false);
   };
 
-  const handleHeroClick = () => {
-    if (isToday && !isSwiping) {
-      navigate('/chat');
+  const handleRingsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isSwiping) {
+      navigate('/settings');
     }
   };
 
@@ -163,14 +164,10 @@ export function DailyProgress({
 
       {/* Hero Section - Progress Ring(s) with Navigation Arrows */}
       <div
-        className={cn(
-          'flex-1 flex flex-col justify-center',
-          isToday && 'cursor-pointer'
-        )}
+        className="flex-1 flex flex-col justify-center"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onClick={handleHeroClick}
       >
         {/* Rings with arrows - centered together */}
         <div className="flex items-center justify-center gap-1">
@@ -187,31 +184,36 @@ export function DailyProgress({
             <ChevronLeft className="h-6 w-6" />
           </Button>
 
-          {/* Progress Rings */}
-          {showDualRings ? (
-            <div className="flex gap-4 items-center">
-              <ProgressRing
-                current={totalProtein}
-                goal={goal}
-                size={140}
-                strokeWidth={10}
-                variant="protein"
-                label="Protein"
-                unit="g"
-              />
-              <ProgressRing
-                current={totalCalories}
-                goal={calorieGoal}
-                size={140}
-                strokeWidth={10}
-                variant="calories"
-                label="Calories"
-                unit=""
-              />
-            </div>
-          ) : (
-            <ProgressRing current={totalProtein} goal={goal} size={200} strokeWidth={12} />
-          )}
+          {/* Progress Rings - tap to open settings */}
+          <div
+            className="cursor-pointer"
+            onClick={handleRingsClick}
+          >
+            {showDualRings ? (
+              <div className="flex gap-4 items-center">
+                <ProgressRing
+                  current={totalProtein}
+                  goal={goal}
+                  size={140}
+                  strokeWidth={10}
+                  variant="protein"
+                  label="Protein"
+                  unit="g"
+                />
+                <ProgressRing
+                  current={totalCalories}
+                  goal={calorieGoal}
+                  size={140}
+                  strokeWidth={10}
+                  variant="calories"
+                  label="Calories"
+                  unit=""
+                />
+              </div>
+            ) : (
+              <ProgressRing current={totalProtein} goal={goal} size={200} strokeWidth={12} />
+            )}
+          </div>
 
           {/* Right Arrow */}
           <div
@@ -230,16 +232,6 @@ export function DailyProgress({
           </div>
         </div>
 
-        {/* Tap to log hint */}
-        <p
-          className={cn(
-            "text-xs text-muted-foreground mt-4 text-center",
-            isToday && "cursor-pointer"
-          )}
-          onClick={isToday ? () => navigate('/chat') : undefined}
-        >
-          Tap to log food
-        </p>
       </div>
 
       {/* Bottom Section - Stats & Entries */}
@@ -349,11 +341,16 @@ export function DailyProgress({
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <p className="text-muted-foreground">No entries {isToday ? 'yet today' : 'this day'}</p>
-              {isToday && (
-                <p className="text-sm text-muted-foreground mt-1">Tap above to log your first meal</p>
+            <div
+              className={cn(
+                "flex flex-col items-center justify-center py-8 text-center",
+                isToday && "cursor-pointer hover:bg-muted/30 rounded-xl transition-colors"
               )}
+              onClick={isToday ? () => navigate('/chat') : undefined}
+            >
+              <p className="text-muted-foreground">
+                {isToday ? 'Tap here to log your first meal' : 'No entries this day'}
+              </p>
             </div>
           )}
         </div>
