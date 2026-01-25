@@ -15,7 +15,7 @@ export default defineConfig({
         name: 'Protee - Protein Tracker',
         short_name: 'Protee',
         description: 'Track your daily protein intake with AI-powered food analysis',
-        theme_color: '#10b981',
+        theme_color: '#f59e0b',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
