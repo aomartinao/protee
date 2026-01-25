@@ -155,12 +155,7 @@ export function Settings() {
 
   return (
     <div className="min-h-full pb-8">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-4">
-        <h1 className="text-2xl font-bold">Settings</h1>
-      </div>
-
-      <div className="px-4 space-y-6">
+      <div className="px-4 pt-4 space-y-6">
         {/* Cloud Sync - Prominent at top */}
         <SyncStatus />
 

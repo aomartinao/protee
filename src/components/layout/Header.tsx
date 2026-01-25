@@ -20,16 +20,20 @@ export function Header() {
     }
   };
 
+  const isSettingsPage = location.pathname === '/settings';
+
   return (
     <header className="sticky top-0 z-40 w-full bg-background safe-area-inset-top">
       <div className="flex h-14 items-center justify-between px-4">
         <h1 className="text-xl font-semibold text-foreground">{getTitle()}</h1>
-        <Link to="/settings">
-          <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted">
-            <Settings className="h-5 w-5" />
-            <span className="sr-only">Settings</span>
-          </Button>
-        </Link>
+        {!isSettingsPage && (
+          <Link to="/settings">
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted">
+              <Settings className="h-5 w-5" />
+              <span className="sr-only">Settings</span>
+            </Button>
+          </Link>
+        )}
       </div>
     </header>
   );
