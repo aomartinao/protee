@@ -8,6 +8,7 @@ export interface AdvisorContext {
   currentTime: Date;
   sleepTime?: string;
   preferences: DietaryPreferences;
+  nickname?: string;
 }
 
 export interface AdvisorMessage {
@@ -22,7 +23,7 @@ export interface AdvisorResponse {
 }
 
 function buildSystemPrompt(context: AdvisorContext): string {
-  const { goal, consumed, remaining, currentTime, sleepTime, preferences } = context;
+  const { goal, consumed, remaining, currentTime, sleepTime, preferences, nickname } = context;
 
   const hour = currentTime.getHours();
   let timeOfDay = 'morning';
@@ -50,7 +51,11 @@ function buildSystemPrompt(context: AdvisorContext): string {
     preferences.favorites?.length ? `FAVORITES (prefer these): ${preferences.favorites.join(', ')}` : '',
   ].filter(Boolean).join('\n');
 
-  return `You are a friendly, knowledgeable food advisor helping someone hit their daily protein goals.
+  const userGreeting = nickname
+    ? `You are a friendly, knowledgeable food advisor helping ${nickname} hit their daily protein goals. Use their name occasionally to make the conversation personal and warm.`
+    : `You are a friendly, knowledgeable food advisor helping someone hit their daily protein goals.`;
+
+  return `${userGreeting}
 
 USER'S CURRENT STATUS:
 - Daily protein goal: ${goal}g

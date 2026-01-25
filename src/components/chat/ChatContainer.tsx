@@ -5,7 +5,8 @@ import { MessageBubble } from './MessageBubble';
 import { ChatInput, type ChatMode } from './ChatInput';
 import { AdvisorOnboarding } from '@/components/advisor/AdvisorOnboarding';
 import { useStore } from '@/store/useStore';
-import { triggerSync } from '@/store/useAuthStore';
+import { triggerSync, useAuthStore } from '@/store/useAuthStore';
+import { getNickname } from '@/lib/nicknames';
 import { analyzeFood, refineAnalysis } from '@/services/ai/client';
 import {
   getAdvisorSuggestion,
@@ -46,6 +47,8 @@ export function ChatContainer() {
   } = useStore();
 
   const { remaining, goal, consumed } = useRemainingProtein();
+  const { user } = useAuthStore();
+  const nickname = getNickname(user?.email);
   const [chatMode, setChatMode] = useState<ChatMode>('log');
   const [advisorHistory, setAdvisorHistory] = useState<AdvisorMessage[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -75,6 +78,7 @@ export function ChatContainer() {
       currentTime: new Date(),
       sleepTime: prefs.sleepTime,
       preferences: prefs,
+      nickname,
     };
   };
 
@@ -194,7 +198,7 @@ export function ChatContainer() {
     setIsAnalyzing(true);
 
     try {
-      const result = await analyzeFood(settings.claudeApiKey, { text });
+      const result = await analyzeFood(settings.claudeApiKey, { text, nickname });
 
       // Calculate consumedAt Date from parsed values
       let consumedAt: Date | undefined;
@@ -266,7 +270,7 @@ export function ChatContainer() {
     setIsAnalyzing(true);
 
     try {
-      const result = await analyzeFood(settings.claudeApiKey, { imageBase64: imageData });
+      const result = await analyzeFood(settings.claudeApiKey, { imageBase64: imageData, nickname });
 
       // Calculate consumedAt Date from parsed values
       let consumedAt: Date | undefined;
