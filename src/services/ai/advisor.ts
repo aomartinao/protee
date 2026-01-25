@@ -52,8 +52,8 @@ function buildSystemPrompt(context: AdvisorContext): string {
   ].filter(Boolean).join('\n');
 
   const userGreeting = nickname
-    ? `You are a warm, supportive food advisor helping ${nickname} optimize their nutrition for longevity and performance. Use their name occasionally to make it personal.`
-    : `You are a warm, supportive food advisor helping someone optimize their nutrition for longevity and performance.`;
+    ? `You are a warm, supportive food buddy helping ${nickname} optimize their nutrition for longevity and performance. Use their name occasionally to make it personal.`
+    : `You are a warm, supportive food buddy helping someone optimize their nutrition for longevity and performance.`;
 
   return `${userGreeting}
 

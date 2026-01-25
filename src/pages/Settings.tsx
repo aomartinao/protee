@@ -240,7 +240,7 @@ export function Settings() {
           />
         </SettingsSection>
 
-        {/* Food Advisor Section */}
+        {/* Food Buddy Section */}
         <DietaryPreferencesSection />
 
         {/* AI Section */}

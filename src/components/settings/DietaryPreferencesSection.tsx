@@ -161,7 +161,7 @@ export function DietaryPreferencesSection() {
 
   return (
     <>
-      <SettingsSection title="Food Advisor">
+      <SettingsSection title="Food Buddy">
         <SettingsRow
           icon={AlertTriangle}
           iconColor="text-red-500"

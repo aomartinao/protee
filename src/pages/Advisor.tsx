@@ -106,7 +106,7 @@ export function Advisor() {
       addMessage({
         syncId: crypto.randomUUID(),
         type: 'system',
-        content: 'Please add your Claude API key in Settings to use the Food Advisor.',
+        content: 'Please add your Claude API key in Settings to use Food Buddy.',
         timestamp: new Date(),
       });
       return;
@@ -221,7 +221,7 @@ export function Advisor() {
     addMessage({
       syncId: crypto.randomUUID(),
       type: 'system',
-      content: `${greeting}Food Advisor is ready. You have ${remaining}g protein remaining today. What would you like to eat?`,
+      content: `${greeting}Food Buddy is ready. You have ${remaining}g protein remaining today. What would you like to eat?`,
       timestamp: new Date(),
     });
   };

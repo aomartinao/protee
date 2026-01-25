@@ -135,7 +135,7 @@ export function AdvisorOnboarding({ onComplete }: AdvisorOnboardingProps) {
     if (messages.length === 0 && ONBOARDING_STEPS.length > 0) {
       setMessages([
         {
-          content: "Hey there! I'm your Food Advisor. Quick intro so I can give you actually useful suggestions.",
+          content: "Hey there! I'm your Food Buddy. Quick intro so I can give you actually useful suggestions.",
           isUser: false,
         },
         {

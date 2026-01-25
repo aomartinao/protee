@@ -17,6 +17,8 @@ export function Header() {
         return 'History';
       case '/settings':
         return 'Settings';
+      case '/advisor':
+        return 'Food Buddy';
       default:
         return 'Protee';
     }
