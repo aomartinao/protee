@@ -60,12 +60,19 @@ export function Advisor() {
     }
 
     // Add welcome message
-    const greeting = nickname ? `Hey ${nickname}! ` : '';
+    const greeting = nickname ? `Hey ${nickname}! ` : 'Hey! ';
     setMessages([
       {
         syncId: crypto.randomUUID(),
         type: 'system',
-        content: `${greeting}You have ${remaining}g protein remaining today. Ask me what to eat, or share a menu photo for recommendations.`,
+        content: `${greeting}You have ${remaining}g protein left today. Here's how I can help:
+
+• **Suggest your next meal** - based on time, protein needs & preferences
+• **Evaluate a food choice** - "Is Greek yogurt a good option right now?"
+• **Analyze a menu photo** - I'll pick the best protein options for you
+• **Answer nutrition questions** - protein sources, meal timing, etc.
+
+What can I help with?`,
         timestamp: new Date(),
       },
     ]);
@@ -217,11 +224,18 @@ export function Advisor() {
   // Handle onboarding completion
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
-    const greeting = nickname ? `Great, ${nickname}! ` : 'Great! ';
+    const greeting = nickname ? `Awesome, ${nickname}! ` : 'Awesome! ';
     addMessage({
       syncId: crypto.randomUUID(),
       type: 'system',
-      content: `${greeting}Food Buddy is ready. You have ${remaining}g protein remaining today. What would you like to eat?`,
+      content: `${greeting}I'm all set. You have ${remaining}g protein left today. I can:
+
+• **Suggest your next meal**
+• **Evaluate a food choice**
+• **Analyze a menu photo**
+• **Answer nutrition questions**
+
+What sounds good?`,
       timestamp: new Date(),
     });
   };
