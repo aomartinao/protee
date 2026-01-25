@@ -703,6 +703,7 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
 
     if (cloudSettings) {
       // Merge: cloud wins for most fields, but preserve local values if cloud is empty/null
+      // For boolean toggles, preserve local true values (user explicitly enabled)
       const mergedSettings: UserSettings = {
         ...cloudSettings,
         // Keep local API key if set (security)
@@ -712,6 +713,9 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
         // Keep local onboarding state if cloud doesn't have it
         advisorOnboardingStarted: cloudSettings.advisorOnboardingStarted || localSettings?.advisorOnboardingStarted,
         logWelcomeShown: cloudSettings.logWelcomeShown || localSettings?.logWelcomeShown,
+        // Preserve tracking toggles if locally enabled (OR logic - true wins)
+        calorieTrackingEnabled: cloudSettings.calorieTrackingEnabled || localSettings?.calorieTrackingEnabled,
+        mpsTrackingEnabled: cloudSettings.mpsTrackingEnabled || localSettings?.mpsTrackingEnabled,
       };
 
       // Save merged settings locally
