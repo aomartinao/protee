@@ -20,7 +20,7 @@ interface OnboardingStep {
 const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'allergies',
-    question: "Hey! Let's get to know each other. Any food allergies I should know about?",
+    question: "Any food allergies I should know about?",
     quickReplies: ['None', 'Peanuts', 'Tree nuts', 'Dairy', 'Shellfish'],
     allowFreeText: true,
     multiSelect: true,
@@ -135,7 +135,7 @@ export function AdvisorOnboarding({ onComplete }: AdvisorOnboardingProps) {
     if (messages.length === 0 && ONBOARDING_STEPS.length > 0) {
       setMessages([
         {
-          content: "Hey there! I'm your Food Buddy. Quick intro so I can give you actually useful suggestions.",
+          content: "Hey! Quick intro so I can give you useful suggestions.",
           isUser: false,
         },
         {
