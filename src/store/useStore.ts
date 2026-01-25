@@ -24,6 +24,15 @@ interface AppState {
   reloadMessages: () => Promise<void>;
   setMessages: (messages: ChatMessage[]) => void;
 
+  // Advisor Messages (in-memory, survives navigation)
+  advisorMessages: ChatMessage[];
+  advisorInitialized: boolean;
+  setAdvisorMessages: (messages: ChatMessage[]) => void;
+  addAdvisorMessage: (message: ChatMessage) => void;
+  updateAdvisorMessage: (syncId: string, updates: Partial<ChatMessage>) => void;
+  setAdvisorInitialized: (initialized: boolean) => void;
+  clearAdvisorMessages: () => void;
+
   // Pending Entry (food being confirmed)
   pendingEntry: Partial<FoodEntry> | null;
   setPendingEntry: (entry: Partial<FoodEntry> | null) => void;
@@ -148,6 +157,23 @@ export const useStore = create<AppState>()(
       },
 
       setMessages: (messages) => set({ messages, messagesLoaded: true }),
+
+      // Advisor messages (in-memory)
+      advisorMessages: [],
+      advisorInitialized: false,
+      setAdvisorMessages: (advisorMessages) => set({ advisorMessages }),
+      addAdvisorMessage: (message) =>
+        set((state) => ({
+          advisorMessages: [...state.advisorMessages, message],
+        })),
+      updateAdvisorMessage: (syncId, updates) =>
+        set((state) => ({
+          advisorMessages: state.advisorMessages.map((msg) =>
+            msg.syncId === syncId ? { ...msg, ...updates } : msg
+          ),
+        })),
+      setAdvisorInitialized: (advisorInitialized) => set({ advisorInitialized }),
+      clearAdvisorMessages: () => set({ advisorMessages: [], advisorInitialized: false }),
 
       // Pending entry
       pendingEntry: null,

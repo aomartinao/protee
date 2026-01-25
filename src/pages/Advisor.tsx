@@ -3,6 +3,7 @@ import { MessageBubble } from '@/components/chat/MessageBubble';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { useSettings } from '@/hooks/useProteinData';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useStore } from '@/store/useStore';
 import { useRemainingProtein } from '@/hooks/useProteinData';
 import { getNickname } from '@/lib/nicknames';
 import {
@@ -103,10 +104,17 @@ export function Advisor() {
   const { remaining, goal, consumed } = useRemainingProtein();
   const nickname = getNickname(user?.email);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Use store for messages (survives navigation)
+  const {
+    advisorMessages: messages,
+    advisorInitialized: initialized,
+    addAdvisorMessage,
+    updateAdvisorMessage,
+    setAdvisorInitialized: setInitialized,
+  } = useStore();
+
   const [advisorHistory, setAdvisorHistory] = useState<AdvisorMessage[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [initialized, setInitialized] = useState(false);
 
   // Onboarding state
   const [onboardingStep, setOnboardingStep] = useState(-1); // -1 = not onboarding
@@ -160,24 +168,17 @@ export function Advisor() {
     const syncId = crypto.randomUUID();
 
     // Add loading message
-    setMessages((prev) => [
-      ...prev,
-      {
-        syncId,
-        type: 'system' as const,
-        content: '',
-        isLoading: true,
-        timestamp: new Date(),
-      },
-    ]);
+    addAdvisorMessage({
+      syncId,
+      type: 'system',
+      content: '',
+      isLoading: true,
+      timestamp: new Date(),
+    });
 
     // Show typing indicator briefly, then reveal content
     setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.syncId === syncId ? { ...msg, isLoading: false, content } : msg
-        )
-      );
+      updateAdvisorMessage(syncId, { isLoading: false, content });
 
       // Wait for typewriter to finish, then process next
       const typingDuration = content.length * 12 + 300;
@@ -186,7 +187,7 @@ export function Advisor() {
         setQueueVersion((v) => v + 1); // Trigger next message
       }, typingDuration);
     }, 500);
-  }, []);
+  }, [addAdvisorMessage, updateAdvisorMessage]);
 
   // Queue messages for sequential display
   const queueMessages = useCallback((messages: string[]) => {
@@ -233,15 +234,11 @@ export function Advisor() {
   }, [messages]);
 
   const addMessage = (message: Omit<ChatMessage, 'id'>) => {
-    setMessages((prev) => [...prev, message as ChatMessage]);
+    addAdvisorMessage(message as ChatMessage);
   };
 
   const updateMessage = (syncId: string, updates: Partial<ChatMessage>) => {
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.syncId === syncId ? { ...msg, ...updates } : msg
-      )
-    );
+    updateAdvisorMessage(syncId, updates);
   };
 
   // Onboarding handlers
