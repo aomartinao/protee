@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Eye,
   EyeOff,
@@ -9,7 +9,8 @@ import {
   Target,
   Zap,
   Dumbbell,
-  Sparkles
+  Sparkles,
+  Database
 } from 'lucide-react';
 import { version } from '../../package.json';
 import { Button } from '@/components/ui/button';
@@ -131,6 +132,21 @@ function SettingsSection({
   );
 }
 
+// Format bytes to human readable
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+interface StorageStats {
+  foodEntries: { count: number; size: number };
+  chatMessages: { count: number; size: number };
+  total: number;
+}
+
 export function Settings() {
   const { settings, updateSettings } = useSettings();
   const { clearMessages } = useStore();
@@ -138,8 +154,31 @@ export function Settings() {
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
   const [apiKey, setApiKey] = useState(settings.claudeApiKey || '');
   const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
+  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
 
   const proteinTrackingEnabled = settings.proteinTrackingEnabled !== false;
+
+  // Calculate storage usage
+  useEffect(() => {
+    async function calculateStorage() {
+      try {
+        const foodEntries = await db.foodEntries.toArray();
+        const chatMessages = await db.chatMessages.toArray();
+
+        const foodSize = new Blob([JSON.stringify(foodEntries)]).size;
+        const chatSize = new Blob([JSON.stringify(chatMessages)]).size;
+
+        setStorageStats({
+          foodEntries: { count: foodEntries.length, size: foodSize },
+          chatMessages: { count: chatMessages.length, size: chatSize },
+          total: foodSize + chatSize,
+        });
+      } catch (error) {
+        console.error('Failed to calculate storage:', error);
+      }
+    }
+    calculateStorage();
+  }, [clearDataDialogOpen]); // Recalculate after clearing data
 
   const handleSaveApiKey = async () => {
     await updateSettings({ claudeApiKey: apiKey || undefined });
@@ -268,6 +307,20 @@ export function Settings() {
 
         {/* Data Section */}
         <SettingsSection title="Data">
+          <SettingsRow
+            icon={Database}
+            iconColor="text-blue-500"
+            label="Storage Used"
+            description={storageStats
+              ? `${storageStats.foodEntries.count} entries, ${storageStats.chatMessages.count} messages`
+              : 'Calculating...'
+            }
+            action={
+              <span className="text-sm font-medium text-muted-foreground">
+                {storageStats ? formatBytes(storageStats.total) : '–'}
+              </span>
+            }
+          />
           <SettingsRow
             icon={Trash2}
             iconColor="text-destructive"
