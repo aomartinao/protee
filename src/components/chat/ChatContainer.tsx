@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Send, Sparkles } from 'lucide-react';
 
 export function ChatContainer() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -48,6 +48,8 @@ export function ChatContainer() {
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
   const [editMessageSyncId, setEditMessageSyncId] = useState<string | null>(null);
+  const [editRefinement, setEditRefinement] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
 
   // Load messages from IndexedDB on mount
   useEffect(() => {
@@ -370,6 +372,43 @@ export function ChatContainer() {
 
     setEditingEntry(null);
     setEditMessageSyncId(null);
+    setEditRefinement('');
+  };
+
+  const handleRefineEdit = async () => {
+    if (!editRefinement.trim() || !settings.claudeApiKey) return;
+
+    setIsRefining(true);
+    try {
+      const originalAnalysis = {
+        foodName: editName,
+        protein: parseInt(editProtein, 10) || 0,
+        calories: editCalories ? parseInt(editCalories, 10) : 0,
+        confidence: editingEntry?.confidence || ('medium' as const),
+        consumedAt: editDate && editTime
+          ? { parsedDate: editDate, parsedTime: editTime }
+          : undefined,
+      };
+
+      const result = await refineAnalysis(settings.claudeApiKey, originalAnalysis, editRefinement);
+
+      // Update form fields with refined values
+      setEditName(result.foodName);
+      setEditProtein(result.protein.toString());
+      if (result.calories !== undefined) {
+        setEditCalories(result.calories.toString());
+      }
+      if (result.consumedAt) {
+        setEditDate(result.consumedAt.parsedDate);
+        setEditTime(result.consumedAt.parsedTime);
+      }
+
+      setEditRefinement('');
+    } catch (error) {
+      console.error('Refinement failed:', error);
+    } finally {
+      setIsRefining(false);
+    }
   };
 
   // Show loading state while messages are being loaded
@@ -405,7 +444,10 @@ export function ChatContainer() {
       />
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
+      <Dialog open={!!editingEntry} onOpenChange={() => {
+        setEditingEntry(null);
+        setEditRefinement('');
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Entry</DialogTitle>
@@ -458,6 +500,43 @@ export function ChatContainer() {
                 />
               </div>
             </div>
+
+            {/* AI Refinement Section */}
+            {settings.claudeApiKey && (
+              <div className="pt-4 border-t space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Or describe what changed
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    value={editRefinement}
+                    onChange={(e) => setEditRefinement(e.target.value)}
+                    placeholder="e.g., it was beef not pork, add a beer..."
+                    disabled={isRefining}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleRefineEdit();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    onClick={handleRefineEdit}
+                    disabled={!editRefinement.trim() || isRefining}
+                  >
+                    {isRefining ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingEntry(null)}>

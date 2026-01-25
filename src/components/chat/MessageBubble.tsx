@@ -5,6 +5,7 @@ import { FoodCard } from './FoodCard';
 import { QuickReplies } from './QuickReplies';
 import { TypingIndicator } from './TypingIndicator';
 import { TypewriterText } from './TypewriterText';
+import { MarkdownText } from './MarkdownText';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -86,7 +87,7 @@ export function MessageBubble({
               />
             )}
             {message.content && (
-              <p className="text-sm whitespace-pre-wrap">
+              <div className="text-sm">
                 {(isAssistant || isSystem) && shouldAnimate && !typewriterComplete ? (
                   <TypewriterText
                     text={message.content}
@@ -94,9 +95,9 @@ export function MessageBubble({
                     onComplete={handleTypewriterComplete}
                   />
                 ) : (
-                  message.content
+                  <MarkdownText>{message.content}</MarkdownText>
                 )}
-              </p>
+              </div>
             )}
             {message.foodEntry && (
               <div className="mt-2">
