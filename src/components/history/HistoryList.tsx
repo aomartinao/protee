@@ -92,7 +92,11 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
 
     const result = Array.from(groups.values());
     for (const day of result) {
-      day.entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      day.entries.sort((a, b) => {
+        const timeA = (a.consumedAt || a.createdAt).getTime();
+        const timeB = (b.consumedAt || b.createdAt).getTime();
+        return timeB - timeA; // Most recent first
+      });
     }
 
     return result;

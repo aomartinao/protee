@@ -309,7 +309,11 @@ export function DailyProgress({
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {entries.length > 0 ? (
             <div className="space-y-1.5">
-              {entries.slice().reverse().map((entry) => (
+              {[...entries].sort((a, b) => {
+                const timeA = (a.consumedAt || a.createdAt).getTime();
+                const timeB = (b.consumedAt || b.createdAt).getTime();
+                return timeB - timeA; // Most recent first
+              }).map((entry) => (
                 <SwipeableRow
                   key={entry.id}
                   itemName={entry.foodName}
