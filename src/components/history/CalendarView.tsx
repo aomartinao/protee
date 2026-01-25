@@ -28,7 +28,6 @@ export function CalendarView({ entries, goals, defaultGoal }: CalendarViewProps)
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  // Calculate protein totals for each day
   const dailyTotals = useMemo(() => {
     const totals = new Map<string, number>();
     for (const entry of entries) {
@@ -38,99 +37,102 @@ export function CalendarView({ entries, goals, defaultGoal }: CalendarViewProps)
     return totals;
   }, [entries]);
 
-  // Get the day of week for the first day (0 = Sunday)
   const startDay = getDay(monthStart);
-
-  // Create padding for days before the first day of month
   const paddingDays = Array(startDay).fill(null);
-
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
     <div className="space-y-4">
-      {/* Header with month navigation */}
-      <div className="flex items-center justify-between">
+      {/* Month Navigation */}
+      <div className="flex items-center justify-between bg-card rounded-2xl p-3 shadow-sm">
         <Button
           variant="ghost"
           size="icon"
+          className="h-9 w-9 rounded-full"
           onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <h3 className="font-semibold">{format(currentMonth, 'MMMM yyyy')}</h3>
+        <h3 className="font-semibold text-lg">{format(currentMonth, 'MMMM yyyy')}</h3>
         <Button
           variant="ghost"
           size="icon"
+          className="h-9 w-9 rounded-full"
           onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* Weekday headers */}
-      <div className="grid grid-cols-7 gap-1">
-        {weekDays.map((day) => (
-          <div
-            key={day}
-            className="text-center text-xs text-muted-foreground font-medium py-2"
-          >
-            {day}
-          </div>
-        ))}
-      </div>
-
-      {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-1">
-        {paddingDays.map((_, index) => (
-          <div key={`padding-${index}`} className="aspect-square" />
-        ))}
-        {days.map((day) => {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          const protein = dailyTotals.get(dateStr) || 0;
-          const goal = goals.get(dateStr) || defaultGoal;
-          const goalMet = protein >= goal;
-          const hasEntry = protein > 0;
-          const isToday = isSameDay(day, new Date());
-
-          return (
+      {/* Calendar */}
+      <div className="bg-card rounded-2xl p-4 shadow-sm">
+        {/* Weekday headers */}
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {weekDays.map((day, i) => (
             <div
-              key={dateStr}
-              className={cn(
-                'aspect-square flex flex-col items-center justify-center rounded-lg text-sm relative',
-                isToday && 'ring-2 ring-primary ring-offset-2',
-                !isSameMonth(day, currentMonth) && 'opacity-50'
-              )}
+              key={i}
+              className="text-center text-xs text-muted-foreground font-medium py-2"
             >
-              <span
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7 gap-1">
+          {paddingDays.map((_, index) => (
+            <div key={`padding-${index}`} className="aspect-square" />
+          ))}
+          {days.map((day) => {
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const protein = dailyTotals.get(dateStr) || 0;
+            const goal = goals.get(dateStr) || defaultGoal;
+            const goalMet = protein >= goal;
+            const hasEntry = protein > 0;
+            const isToday = isSameDay(day, new Date());
+
+            return (
+              <div
+                key={dateStr}
                 className={cn(
-                  'font-medium',
-                  goalMet && 'text-green-600',
-                  !hasEntry && 'text-muted-foreground'
+                  'aspect-square flex flex-col items-center justify-center rounded-xl text-sm relative transition-colors',
+                  isToday && 'bg-primary/10',
+                  goalMet && 'bg-green-50',
+                  !isSameMonth(day, currentMonth) && 'opacity-40'
                 )}
               >
-                {format(day, 'd')}
-              </span>
-              {hasEntry && (
-                <div
+                <span
                   className={cn(
-                    'absolute bottom-1 w-2 h-2 rounded-full',
-                    goalMet ? 'bg-green-500' : 'bg-primary'
+                    'font-medium text-sm',
+                    isToday && 'text-primary font-bold',
+                    goalMet && !isToday && 'text-green-600',
+                    !hasEntry && !isToday && 'text-muted-foreground'
                   )}
-                />
-              )}
-            </div>
-          );
-        })}
+                >
+                  {format(day, 'd')}
+                </span>
+                {hasEntry && (
+                  <span className={cn(
+                    'text-[10px] font-medium mt-0.5',
+                    goalMet ? 'text-green-600' : 'text-primary'
+                  )}>
+                    {protein}g
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-primary" />
-          <span>Has entry</span>
+      <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-md bg-primary/10" />
+          <span>Today</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-green-500" />
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-md bg-green-50 border border-green-200" />
           <span>Goal met</span>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { Camera, Send, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { compressImage } from '@/lib/utils';
 
 interface ChatInputProps {
@@ -33,14 +32,13 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
         console.error('Error processing image:', error);
       }
     }
-    // Reset input
     e.target.value = '';
   };
 
   return (
-    <div className="border-t bg-background p-3 safe-area-inset-bottom">
+    <div className="border-t bg-card p-3 safe-area-inset-bottom">
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        {/* Camera capture button */}
+        {/* Hidden file inputs */}
         <input
           ref={cameraInputRef}
           type="file"
@@ -49,18 +47,6 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
           onChange={handleFileChange}
           className="hidden"
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => cameraInputRef.current?.click()}
-          disabled={disabled}
-        >
-          <Camera className="h-5 w-5" />
-          <span className="sr-only">Take photo</span>
-        </Button>
-
-        {/* File upload button */}
         <input
           ref={fileInputRef}
           type="file"
@@ -68,31 +54,51 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
           onChange={handleFileChange}
           className="hidden"
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
-        >
-          <ImageIcon className="h-5 w-5" />
-          <span className="sr-only">Upload image</span>
-        </Button>
+
+        {/* Action buttons */}
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-full hover:bg-muted"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={disabled}
+          >
+            <Camera className="h-5 w-5 text-muted-foreground" />
+            <span className="sr-only">Take photo</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-full hover:bg-muted"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled}
+          >
+            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+            <span className="sr-only">Upload image</span>
+          </Button>
+        </div>
 
         {/* Text input */}
-        <Input
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="200g chicken breast..."
-          disabled={disabled}
-          className="flex-1"
-        />
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Describe your meal..."
+            disabled={disabled}
+            className="w-full h-10 px-4 rounded-full bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+          />
+        </div>
 
         {/* Send button */}
         <Button
           type="submit"
           size="icon"
+          className="h-10 w-10 rounded-full"
           disabled={!text.trim() || disabled}
         >
           <Send className="h-5 w-5" />

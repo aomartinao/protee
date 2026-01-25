@@ -1,6 +1,5 @@
 import { Check, Edit2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { FoodEntry } from '@/types';
 import { format } from 'date-fns';
@@ -22,68 +21,74 @@ export function FoodCard({
   showCalories = false,
   isConfirmed = false,
 }: FoodCardProps) {
-  const confidenceVariant =
+  const confidenceColor =
     entry.confidence === 'high'
-      ? 'success'
+      ? 'text-green-600 bg-green-50'
       : entry.confidence === 'medium'
-      ? 'warning'
-      : 'error';
+      ? 'text-amber-600 bg-amber-50'
+      : 'text-red-600 bg-red-50';
 
   return (
-    <div className="bg-background rounded-lg p-3 space-y-3">
-      <div className="flex items-start justify-between">
-        <div>
-          <h4 className="font-medium">{entry.foodName}</h4>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-2xl font-bold text-primary">
-              {entry.protein}g
-            </span>
-            <span className="text-sm text-muted-foreground">protein</span>
-            {showCalories && entry.calories !== undefined && entry.calories > 0 && (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-2xl font-bold text-amber-500">
-                  {entry.calories}
-                </span>
-                <span className="text-sm text-muted-foreground">kcal</span>
-              </>
-            )}
-          </div>
+    <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-foreground truncate">{entry.foodName}</h4>
           {entry.consumedAt && (
-            <div className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {format(entry.consumedAt, 'h:mm a')}
-            </div>
+            </p>
           )}
         </div>
         {entry.confidence && (
-          <Badge variant={confidenceVariant} className={cn('capitalize')}>
+          <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full capitalize', confidenceColor)}>
             {entry.confidence}
-          </Badge>
+          </span>
         )}
       </div>
 
+      {/* Nutrition Stats */}
+      <div className="flex items-baseline gap-4 mt-3">
+        <div>
+          <span className="text-3xl font-bold text-primary">{entry.protein}</span>
+          <span className="text-sm text-muted-foreground ml-1">g protein</span>
+        </div>
+        {showCalories && entry.calories !== undefined && entry.calories > 0 && (
+          <div>
+            <span className="text-3xl font-bold text-amber-500">{entry.calories}</span>
+            <span className="text-sm text-muted-foreground ml-1">kcal</span>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
       {showActions && !isConfirmed && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-4">
           <Button
             size="sm"
             variant="outline"
-            className="flex-1"
+            className="flex-1 h-10 rounded-xl"
             onClick={onEdit}
           >
-            <Edit2 className="h-4 w-4 mr-1" />
+            <Edit2 className="h-4 w-4 mr-1.5" />
             Edit
           </Button>
-          <Button size="sm" className="flex-1" onClick={onConfirm}>
-            <Check className="h-4 w-4 mr-1" />
+          <Button
+            size="sm"
+            className="flex-1 h-10 rounded-xl"
+            onClick={onConfirm}
+          >
+            <Check className="h-4 w-4 mr-1.5" />
             Confirm
           </Button>
         </div>
       )}
 
+      {/* Confirmed state */}
       {isConfirmed && (
-        <div className="flex items-center justify-center gap-2 text-sm text-green-600">
+        <div className="flex items-center justify-center gap-2 mt-4 py-2 rounded-xl bg-green-50 text-green-600">
           <CheckCircle className="h-4 w-4" />
-          <span>Added</span>
+          <span className="text-sm font-medium">Added to today</span>
         </div>
       )}
     </div>

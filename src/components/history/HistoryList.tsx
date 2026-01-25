@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Trash2, Edit2 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Trash2, Edit2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -37,7 +35,6 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
     setEditProtein(entry.protein.toString());
     setEditCalories(entry.calories?.toString() || '');
     setEditDate(entry.date);
-    // Use consumedAt time if available, otherwise use createdAt time
     const timeSource = entry.consumedAt || entry.createdAt;
     setEditTime(format(timeSource, 'HH:mm'));
   };
@@ -45,7 +42,6 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
   const handleSaveEdit = () => {
     if (!editingEntry || !onEdit) return;
 
-    // Construct consumedAt from date/time inputs
     let consumedAt: Date | undefined;
     if (editDate && editTime) {
       const [year, month, day] = editDate.split('-').map(Number);
@@ -69,7 +65,6 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, DailyStats>();
 
-    // Sort entries by date descending
     const sorted = [...entries].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
@@ -94,7 +89,6 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
       stats.goalMet = stats.totalProtein >= stats.goal;
     }
 
-    // Sort entries within each day by createdAt descending (newest first)
     const result = Array.from(groups.values());
     for (const day of result) {
       day.entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -105,89 +99,97 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
 
   if (entries.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        <p>No entries yet.</p>
-        <p className="text-sm">Start logging your protein intake!</p>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className="text-muted-foreground">No entries yet</p>
+        <p className="text-sm text-muted-foreground mt-1">Start logging your meals!</p>
       </div>
     );
   }
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-4">
         {groupedByDate.map((day) => (
           <div key={day.date} className="space-y-2">
-            <div className="flex items-center justify-between px-1">
+            {/* Day Header */}
+            <div className="flex items-center justify-between px-1 sticky top-0 bg-background py-2 -mx-4 px-4">
               <div className="flex items-center gap-2">
-                <h3 className="font-medium">
+                <h3 className="font-semibold text-sm">
                   {format(parseISO(day.date), 'EEEE, MMM d')}
                 </h3>
                 {day.goalMet && (
-                  <Badge variant="success" className="text-xs">
+                  <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                    <CheckCircle className="h-3 w-3" />
                     Goal met
-                  </Badge>
+                  </span>
                 )}
               </div>
-              <span className="text-sm text-muted-foreground">
-                {day.totalProtein}g / {day.goal}g
+              <div className="text-sm">
+                <span className="font-semibold">{day.totalProtein}g</span>
+                <span className="text-muted-foreground"> / {day.goal}g</span>
                 {calorieTrackingEnabled && day.totalCalories > 0 && (
-                  <span className="ml-2 text-amber-600">· {day.totalCalories} kcal</span>
+                  <span className="text-amber-600 ml-2">· {day.totalCalories} kcal</span>
                 )}
-              </span>
+              </div>
             </div>
 
-            <div className="space-y-2">
+            {/* Entries */}
+            <div className="bg-card rounded-2xl overflow-hidden shadow-sm divide-y divide-border/50">
               {day.entries.map((entry) => (
-                <Card key={entry.id}>
-                  <CardContent className="flex items-center justify-between p-3">
-                    <div className="flex items-center gap-3">
-                      {entry.imageData && (
-                        <img
-                          src={entry.imageData}
-                          alt={entry.foodName}
-                          className="w-12 h-12 rounded object-cover"
-                        />
-                      )}
-                      <div>
-                        <p className="font-medium text-sm">{entry.foodName}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground capitalize">
-                            {entry.source}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(entry.consumedAt || entry.createdAt, 'h:mm a')}
-                          </span>
-                        </div>
-                      </div>
+                <div key={entry.id} className="flex items-center gap-3 p-3">
+                  {/* Image or Protein Badge */}
+                  {entry.imageData ? (
+                    <img
+                      src={entry.imageData}
+                      alt={entry.foodName}
+                      className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold text-primary">{entry.protein}g</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        <span className="font-bold text-primary">{entry.protein}g</span>
-                        {calorieTrackingEnabled && entry.calories && (
-                          <span className="text-xs text-amber-600 ml-1">· {entry.calories} kcal</span>
-                        )}
-                      </div>
-                      {onEdit && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-primary"
-                          onClick={() => handleEditClick(entry)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                  )}
+
+                  {/* Entry Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{entry.foodName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(entry.consumedAt || entry.createdAt, 'h:mm a')}
+                      <span className="mx-1">·</span>
+                      <span className="capitalize">{entry.source}</span>
+                    </p>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="text-right flex-shrink-0">
+                    <span className="font-bold text-primary">{entry.protein}g</span>
+                    {calorieTrackingEnabled && entry.calories ? (
+                      <p className="text-xs text-amber-600">{entry.calories} kcal</p>
+                    ) : null}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-1 flex-shrink-0">
+                    {onEdit && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => entry.id && onDelete(entry.id)}
+                        className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                        onClick={() => handleEditClick(entry)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Edit2 className="h-4 w-4" />
                       </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
+                      onClick={() => entry.id && onDelete(entry.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -196,7 +198,7 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
 
       {/* Edit Dialog */}
       <Dialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Entry</DialogTitle>
           </DialogHeader>
@@ -206,30 +208,35 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                className="h-11"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Protein (grams)</label>
-              <Input
-                type="number"
-                value={editProtein}
-                onChange={(e) => setEditProtein(e.target.value)}
-                min={0}
-                max={500}
-              />
-            </div>
-            {calorieTrackingEnabled && (
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Calories (kcal)</label>
+                <label className="text-sm font-medium">Protein (g)</label>
                 <Input
                   type="number"
-                  value={editCalories}
-                  onChange={(e) => setEditCalories(e.target.value)}
+                  value={editProtein}
+                  onChange={(e) => setEditProtein(e.target.value)}
                   min={0}
-                  max={10000}
+                  max={500}
+                  className="h-11"
                 />
               </div>
-            )}
+              {calorieTrackingEnabled && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Calories</label>
+                  <Input
+                    type="number"
+                    value={editCalories}
+                    onChange={(e) => setEditCalories(e.target.value)}
+                    min={0}
+                    max={10000}
+                    className="h-11"
+                  />
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Date</label>
@@ -237,6 +244,7 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
                   type="date"
                   value={editDate}
                   onChange={(e) => setEditDate(e.target.value)}
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -245,15 +253,16 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
                   type="time"
                   value={editTime}
                   onChange={(e) => setEditTime(e.target.value)}
+                  className="h-11"
                 />
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setEditingEntry(null)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit}>Save</Button>
+            <Button onClick={handleSaveEdit}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

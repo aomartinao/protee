@@ -1,15 +1,17 @@
 import { useState, useCallback } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HistoryList } from '@/components/history/HistoryList';
 import { WeeklyChart } from '@/components/history/WeeklyChart';
 import { CalendarView } from '@/components/history/CalendarView';
 import { useRecentEntries, useDeleteEntry, useDailyGoals, useSettings } from '@/hooks/useProteinData';
 import { updateFoodEntry } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
+import { cn } from '@/lib/utils';
 import type { FoodEntry } from '@/types';
 
+type TabValue = 'list' | 'week' | 'month';
+
 export function History() {
-  const [activeTab, setActiveTab] = useState('list');
+  const [activeTab, setActiveTab] = useState<TabValue>('list');
   const entries = useRecentEntries(90);
   const deleteEntry = useDeleteEntry();
   const dailyGoals = useDailyGoals();
@@ -27,20 +29,40 @@ export function History() {
       updatedAt: new Date(),
     });
 
-    // Trigger sync (entries auto-refresh via useLiveQuery)
     triggerSync();
   }, []);
 
-  return (
-    <div className="p-4 space-y-4">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="list">List</TabsTrigger>
-          <TabsTrigger value="chart">Week</TabsTrigger>
-          <TabsTrigger value="calendar">Month</TabsTrigger>
-        </TabsList>
+  const tabs: { value: TabValue; label: string }[] = [
+    { value: 'list', label: 'List' },
+    { value: 'week', label: 'Week' },
+    { value: 'month', label: 'Month' },
+  ];
 
-        <TabsContent value="list" className="mt-4">
+  return (
+    <div className="min-h-full">
+      {/* Tab Navigation */}
+      <div className="px-4 pt-2 pb-4">
+        <div className="bg-muted/50 p-1 rounded-xl flex">
+          {tabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={cn(
+                'flex-1 py-2 text-sm font-medium rounded-lg transition-all',
+                activeTab === tab.value
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="px-4">
+        {activeTab === 'list' && (
           <HistoryList
             entries={entries}
             goals={dailyGoals}
@@ -49,20 +71,20 @@ export function History() {
             onDelete={deleteEntry}
             onEdit={handleEdit}
           />
-        </TabsContent>
+        )}
 
-        <TabsContent value="chart" className="mt-4">
+        {activeTab === 'week' && (
           <WeeklyChart entries={entries} goal={settings.defaultGoal} />
-        </TabsContent>
+        )}
 
-        <TabsContent value="calendar" className="mt-4">
+        {activeTab === 'month' && (
           <CalendarView
             entries={entries}
             goals={dailyGoals}
             defaultGoal={settings.defaultGoal}
           />
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
     </div>
   );
 }
