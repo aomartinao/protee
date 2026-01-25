@@ -9,6 +9,8 @@ interface AdvisorInputProps {
   disabled?: boolean;
 }
 
+const DEFAULT_PROMPT = 'What should I eat next?';
+
 export function AdvisorInput({ onSendText, onSendImage, disabled }: AdvisorInputProps) {
   const [text, setText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -16,10 +18,12 @@ export function AdvisorInput({ onSendText, onSendImage, disabled }: AdvisorInput
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (text.trim() && !disabled) {
-      onSendText(text.trim());
-      setText('');
-    }
+    if (disabled) return;
+
+    // Send the typed text, or the default prompt if empty
+    const messageToSend = text.trim() || DEFAULT_PROMPT;
+    onSendText(messageToSend);
+    setText('');
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,7 +92,7 @@ export function AdvisorInput({ onSendText, onSendImage, disabled }: AdvisorInput
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="What should I eat?"
+            placeholder={DEFAULT_PROMPT}
             disabled={disabled}
             className="w-full h-10 px-4 rounded-full bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
           />
@@ -99,7 +103,7 @@ export function AdvisorInput({ onSendText, onSendImage, disabled }: AdvisorInput
           type="submit"
           size="icon"
           className="h-10 w-10 rounded-full"
-          disabled={!text.trim() || disabled}
+          disabled={disabled}
         >
           <Send className="h-5 w-5" />
           <span className="sr-only">Send</span>
