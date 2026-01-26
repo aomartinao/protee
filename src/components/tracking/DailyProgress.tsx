@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Flame, Dumbbell, Plus, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { Flame, Dumbbell, Plus, ChevronLeft, ChevronRight, History, CalendarCheck } from 'lucide-react';
 import { ProgressRing } from './ProgressRing';
 import { Button } from '@/components/ui/button';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
@@ -162,33 +162,15 @@ export function DailyProgress({
     setIsSwiping(false);
   };
 
-  const handleRingsClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isSwiping) {
-      navigate('/settings');
-    }
-  };
-
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex flex-col min-h-full relative">
       {/* Date Label */}
       <div className="flex items-center justify-center px-4 py-2">
-        <button
-          onClick={onToday}
-          className={cn(
-            'text-center transition-colors',
-            onToday && 'hover:text-primary active:text-primary'
-          )}
-        >
+        <div className="text-center">
           <span className="font-semibold">
-            {isToday ? 'Today' : format(selectedDate, 'EEEE')}
+            {isToday ? 'Today' : `${format(selectedDate, 'EEEE')}, ${format(selectedDate, 'MMM d')}`}
           </span>
-          {!isToday && (
-            <p className="text-xs text-muted-foreground">
-              {format(selectedDate, 'MMM d')} · tap for today
-            </p>
-          )}
-        </button>
+        </div>
       </div>
 
       {/* Hero Section - Progress Ring(s) with Navigation Arrows */}
@@ -213,11 +195,8 @@ export function DailyProgress({
             <ChevronLeft className="h-6 w-6" />
           </Button>
 
-          {/* Progress Rings - tap to open settings */}
-          <div
-            className="cursor-pointer"
-            onClick={handleRingsClick}
-          >
+          {/* Progress Rings */}
+          <div>
             {showDualRings ? (
               <div className="flex gap-4 items-center">
                 <ProgressRing
@@ -289,17 +268,19 @@ export function DailyProgress({
                     <span className="text-2xl font-bold">{mpsHits.length}</span>
                     <span className="text-sm text-muted-foreground">/3</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">MPS hits</span>
-                  {isToday && mpsHits.length > 0 && mpsWindowStatus.minutesSince !== null && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
-                      <span className="font-mono">
-                        {String(Math.floor(mpsWindowStatus.minutesSince / 60)).padStart(2, '0')}
-                        <span className={colonVisible ? 'opacity-100' : 'opacity-0'}>:</span>
-                        {String(mpsWindowStatus.minutesSince % 60).padStart(2, '0')}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">MPS hits</span>
+                    {isToday && mpsHits.length > 0 && mpsWindowStatus.minutesSince !== null && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
+                        <span className="font-mono">
+                          {String(Math.floor(mpsWindowStatus.minutesSince / 60)).padStart(2, '0')}
+                          <span className={colonVisible ? 'opacity-100' : 'opacity-0'}>:</span>
+                          {String(mpsWindowStatus.minutesSince % 60).padStart(2, '0')}
+                        </span>
                       </span>
-                    </span>
-                  )}
+                    )}
+                  </div>
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-80">
@@ -339,23 +320,22 @@ export function DailyProgress({
           {/* Divider */}
           <div className="h-10 w-px bg-border" />
 
-          {/* Quick Add Button - only for today */}
+          {/* Entries count or Today button */}
           {isToday ? (
-            <Button
-              size="icon"
-              className="h-12 w-12 rounded-full shadow-md"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate('/chat');
-              }}
-            >
-              <Plus className="h-6 w-6" />
-            </Button>
-          ) : (
             <div className="flex flex-col items-center">
               <span className="text-2xl font-bold text-foreground">{entries.length}</span>
               <span className="text-xs text-muted-foreground">entries</span>
             </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 gap-1.5"
+              onClick={onToday}
+            >
+              <CalendarCheck className="h-4 w-4" />
+              Today
+            </Button>
           )}
         </div>
 
@@ -431,6 +411,17 @@ export function DailyProgress({
           View full history
         </button>
       </div>
+
+      {/* Floating Add Button - only for today */}
+      {isToday && (
+        <Button
+          size="icon"
+          className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg z-10"
+          onClick={() => navigate('/chat')}
+        >
+          <Plus className="h-7 w-7" />
+        </Button>
+      )}
     </div>
   );
 }
