@@ -290,7 +290,7 @@ export function DailyProgress({
                     <span className="text-sm text-muted-foreground">/3</span>
                   </div>
                   <span className="text-xs text-muted-foreground">MPS hits</span>
-                  {mpsHits.length > 0 && mpsWindowStatus.minutesSince !== null && (
+                  {isToday && mpsHits.length > 0 && mpsWindowStatus.minutesSince !== null && (
                     <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                       <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
                       <span className="font-mono">
