@@ -165,7 +165,10 @@ export function Dashboard() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          className="sm:max-w-md"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Edit Entry</DialogTitle>
           </DialogHeader>
@@ -177,7 +180,6 @@ export function Dashboard() {
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 className="h-12 text-base"
-                autoFocus={false}
               />
             </div>
 
@@ -216,7 +218,7 @@ export function Dashboard() {
                   type="time"
                   value={editTime}
                   onChange={(e) => setEditTime(e.target.value)}
-                  className="h-10"
+                  className="h-10 [&::-webkit-calendar-picker-indicator]:opacity-50"
                 />
               </div>
             </div>
@@ -233,7 +235,7 @@ export function Dashboard() {
                   onChange={(e) => setEditRefinement(e.target.value)}
                   placeholder="e.g., it was 200g not 100g, add fries..."
                   disabled={isRefining}
-                  className="h-11"
+                  className="h-10"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -263,11 +265,11 @@ export function Dashboard() {
               </div>
             )}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex-row justify-end gap-2">
             <Button variant="outline" onClick={() => { setEditingEntry(null); setEditRefinement(''); }}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit}>Save Changes</Button>
+            <Button onClick={handleSaveEdit}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
