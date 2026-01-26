@@ -6,6 +6,7 @@ import { Chat } from '@/pages/Chat';
 import { Advisor } from '@/pages/Advisor';
 import { History } from '@/pages/History';
 import { Settings } from '@/pages/Settings';
+import { UpdatePrompt } from '@/components/UpdatePrompt';
 import { initializeAuth } from '@/store/useAuthStore';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <UpdatePrompt />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />

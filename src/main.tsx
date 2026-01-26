@@ -5,15 +5,6 @@ import './index.css';
 import { debugCloudEntries, debugLocalEntries, clearSyncMeta, fullSync } from './services/sync';
 import { useAuthStore } from './store/useAuthStore';
 
-// Register service worker for PWA
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Service worker registration failed, but app will still work
-    });
-  });
-}
-
 // Expose debug functions on window for console testing
 declare global {
   interface Window {
