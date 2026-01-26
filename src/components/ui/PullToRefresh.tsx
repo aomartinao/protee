@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ProteinSpinner } from './ProteinSpinner';
 
 interface PullToRefreshProps {
   children: React.ReactNode;
@@ -91,37 +91,31 @@ export function PullToRefresh({
 
   return (
     <div className={cn('relative flex flex-col h-full', className)}>
-      {/* Pull indicator */}
-      <div
-        className={cn(
-          'absolute left-0 right-0 flex justify-center items-center transition-all duration-200 z-10',
-          pullDistance > 0 || isRefreshing ? 'opacity-100' : 'opacity-0'
-        )}
-        style={{
-          height: pullDistance > 0 ? pullDistance : isRefreshing ? PULL_THRESHOLD : 0,
-          top: 0,
-        }}
-      >
+      {/* Pull indicator - fixed position so it doesn't move with scroll */}
+      {(pullDistance > 0 || isRefreshing) && (
         <div
-          className={cn(
-            'p-2 rounded-full bg-muted',
-            shouldTrigger || isRefreshing ? 'bg-primary/10' : ''
-          )}
+          className="fixed left-0 right-0 flex justify-center items-center z-50 pointer-events-none"
+          style={{
+            top: 56, // Below header (h-14 = 56px)
+          }}
         >
-          <RefreshCw
+          <div
             className={cn(
-              'h-5 w-5 text-muted-foreground transition-colors duration-200',
-              isRefreshing && 'animate-spin text-primary',
-              shouldTrigger && !isRefreshing && 'text-primary'
+              'p-2 rounded-full bg-background shadow-lg transition-all duration-200',
+              shouldTrigger || isRefreshing ? 'bg-primary/10' : 'bg-muted'
             )}
-            style={
-              isRefreshing
-                ? undefined
-                : { transform: `rotate(${progress * 180}deg)` }
-            }
-          />
+            style={{
+              transform: `translateY(${Math.min(pullDistance, PULL_THRESHOLD) - 20}px)`,
+              opacity: Math.min(progress * 2, 1),
+            }}
+          >
+            <ProteinSpinner
+              isSpinning={isRefreshing}
+              progress={progress}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content container */}
       <div
