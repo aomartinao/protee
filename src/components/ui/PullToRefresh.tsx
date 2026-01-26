@@ -105,7 +105,6 @@ export function PullToRefresh({
               shouldTrigger || isRefreshing ? 'bg-primary/10' : 'bg-muted'
             )}
             style={{
-              transform: `translateY(${Math.min(pullDistance, PULL_THRESHOLD) - 20}px)`,
               opacity: Math.min(progress * 2, 1),
             }}
           >
