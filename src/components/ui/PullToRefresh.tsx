@@ -90,12 +90,12 @@ export function PullToRefresh({
 
   return (
     <div className={cn('relative flex flex-col h-full', className)}>
-      {/* Pull indicator - fixed position so it doesn't move with scroll */}
+      {/* Pull indicator - fixed position at header level, above everything */}
       {(pullDistance > 0 || isRefreshing) && (
         <div
-          className="fixed left-0 right-0 flex justify-center items-center z-50 pointer-events-none"
+          className="fixed left-1/2 -translate-x-1/2 flex justify-center items-center z-[100] pointer-events-none"
           style={{
-            top: 60,
+            top: 4,
             opacity: Math.min(progress * 2, 1),
           }}
         >

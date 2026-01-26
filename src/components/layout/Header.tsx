@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, LogOut, Trash2, CalendarCheck, RefreshCw } from 'lucide-react';
+import { Settings, LogOut, Trash2, CalendarCheck, RefreshCw, Target } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { version } from '../../../package.json';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
 
 export function Header() {
   const location = useLocation();
@@ -128,6 +133,51 @@ export function Header() {
           <CalendarCheck className="h-4 w-4" />
           Today
         </Button>
+      );
+    }
+
+    // On Dashboard (when on Today), show gold target icon with info popover
+    if (isDashboardPage) {
+      return (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted">
+              <Target className="h-5 w-5 text-amber-500" />
+              <span className="sr-only">About Protee</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72" align="end">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Target className="h-6 w-6 text-amber-500" />
+                <div>
+                  <h4 className="font-semibold">Protee</h4>
+                  <p className="text-xs text-muted-foreground">v{version}</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                AI-powered protein tracking to hit your daily goals
+              </p>
+              <div className="pt-2 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Feedback welcome at{' '}
+                  <a
+                    href="mailto:mmartin.holecko@gmail.com"
+                    className="text-primary hover:underline"
+                  >
+                    mmartin.holecko@gmail.com
+                  </a>
+                </p>
+              </div>
+              <Link to="/settings" className="block">
+                <Button variant="outline" size="sm" className="w-full gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
+              </Link>
+            </div>
+          </PopoverContent>
+        </Popover>
       );
     }
 

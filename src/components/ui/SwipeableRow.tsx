@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useCallback, useEffect, useId, type ReactNode } from 'react';
 import { Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSwipeContext } from '@/context/SwipeContext';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,8 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
   const [translateX, setTranslateX] = useState(0);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const swipeContext = useSwipeContext();
+  const rowId = useId();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
@@ -34,6 +37,19 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
   const velocityRef = useRef(0);
   const lastXRef = useRef(0);
   const lastTimeRef = useRef(0);
+
+  // Register with swipe context for cross-row coordination
+  const closeRow = useCallback(() => {
+    setIsAnimating(true);
+    setTranslateX(0);
+  }, []);
+
+  useEffect(() => {
+    if (swipeContext) {
+      swipeContext.registerRow(rowId, closeRow);
+      return () => swipeContext.unregisterRow(rowId);
+    }
+  }, [swipeContext, rowId, closeRow]);
 
   const EDIT_WIDTH = 72;
   const DELETE_WIDTH = 72;
@@ -54,7 +70,12 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
     lastTimeRef.current = Date.now();
     velocityRef.current = 0;
     setIsAnimating(false);
-  }, [translateX, onEdit, onDelete]);
+
+    // Notify other rows to close when starting to swipe
+    if (swipeContext) {
+      swipeContext.notifySwipeStart(rowId);
+    }
+  }, [translateX, onEdit, onDelete, swipeContext, rowId]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDraggingRef.current) return;
@@ -229,7 +250,7 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
                 isFullSwipe ? "bg-red-600" : "bg-destructive active:bg-red-600"
               )}
               style={{
-                width: isFullSwipe ? totalReveal - (onEdit ? currentEditWidth : 0) : currentDeleteWidth,
+                width: isFullSwipe ? totalReveal : currentDeleteWidth,
               }}
               onClick={handleDeleteClick}
             >

@@ -206,29 +206,26 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
                   itemName={entry.foodName}
                   onEdit={onEdit ? () => handleEditClick(entry) : undefined}
                   onDelete={entry.id ? () => onDelete(entry.id!) : undefined}
-                  className="bg-card shadow-sm"
                 >
-                  <div className="flex items-center gap-3 p-3">
-                    {/* Image or Protein Badge */}
+                  <div className="flex items-center gap-3 p-2.5">
+                    {/* Image or Protein Badge - matching Today's styling */}
                     {entry.imageData ? (
                       <img
                         src={entry.imageData}
                         alt={entry.foodName}
-                        className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
+                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-bold text-primary">{entry.protein}g</span>
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-bold text-primary">{entry.protein}g</span>
                       </div>
                     )}
 
                     {/* Entry Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{entry.foodName}</p>
+                      <p className="text-sm font-medium truncate">{entry.foodName}</p>
                       <p className="text-xs text-muted-foreground">
                         {format(entry.consumedAt || entry.createdAt, 'h:mm a')}
-                        <span className="mx-1">·</span>
-                        <span className="capitalize">{entry.source}</span>
                       </p>
                     </div>
 
@@ -238,7 +235,7 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
                         <Dumbbell className="h-3.5 w-3.5 text-purple-500" />
                       )}
                       <div>
-                        <span className="font-bold text-primary">{entry.protein}g</span>
+                        <span className="text-sm font-semibold text-primary">{entry.protein}g</span>
                         {calorieTrackingEnabled && entry.calories ? (
                           <p className="text-xs text-amber-600">{entry.calories} kcal</p>
                         ) : null}

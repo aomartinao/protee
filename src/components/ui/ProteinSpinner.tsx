@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ProteinSpinnerProps {
@@ -7,9 +7,24 @@ interface ProteinSpinnerProps {
   progress?: number; // 0-1 for pull progress
 }
 
+// Generate random fold parameters for varied shapes
+function generateFoldPattern() {
+  return {
+    baseAngle: Math.random() * 360,
+    angleMultiplier: 100 + Math.random() * 80, // 100-180 degrees per step
+    radiusBase: 5 + Math.random() * 3,
+    radiusVariation: 1 + Math.random() * 2,
+    verticalSpread: 1 + Math.random() * 1.5,
+    centerOffsetX: -3 + Math.random() * 6,
+    centerOffsetY: -3 + Math.random() * 6,
+  };
+}
+
 export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinSpinnerProps) {
   // Animate fold/unfold when spinning
   const [animatedFold, setAnimatedFold] = useState(0);
+  const [foldPattern, setFoldPattern] = useState(generateFoldPattern);
+  const cycleCountRef = useRef(0);
 
   useEffect(() => {
     if (!isSpinning) {
@@ -20,6 +35,7 @@ export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinS
     let animationFrame: number;
     let startTime: number | null = null;
     const duration = 1500; // 1.5 seconds per fold/unfold cycle
+    let lastCycle = -1;
 
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
@@ -28,6 +44,15 @@ export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinS
       // Oscillate between 0 and 1 using sine wave
       const cycleProgress = (elapsed % (duration * 2)) / (duration * 2);
       const fold = Math.sin(cycleProgress * Math.PI * 2) * 0.5 + 0.5;
+
+      // Detect when we complete a full cycle (fold then unfold)
+      const currentCycle = Math.floor(elapsed / (duration * 2));
+      if (currentCycle !== lastCycle && fold < 0.1) {
+        lastCycle = currentCycle;
+        cycleCountRef.current++;
+        // Generate new random pattern for next fold
+        setFoldPattern(generateFoldPattern());
+      }
 
       setAnimatedFold(fold);
       animationFrame = requestAnimationFrame(animate);
@@ -41,7 +66,7 @@ export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinS
   const aminoAcids = [0, 1, 2, 3, 4, 5, 6, 7];
 
   // Colors representing different amino acid types (hydrophobic, polar, charged, etc.)
-  const colors = [
+  const colors = useMemo(() => [
     '#3b82f6', // blue - polar
     '#22c55e', // green - hydrophobic
     '#eab308', // yellow - polar
@@ -50,7 +75,7 @@ export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinS
     '#06b6d4', // cyan - polar
     '#f97316', // orange - hydrophobic
     '#ec4899', // pink - charged
-  ];
+  ], []);
 
   // Use animated fold when spinning, otherwise use progress
   const foldAmount = isSpinning ? animatedFold : progress;
@@ -62,14 +87,14 @@ export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinS
     const linearX = 4 + index * 4.5;
     const linearY = 20 + Math.sin(index * 0.8) * waveAmplitude;
 
-    // Folded: compact globular structure with alpha helix characteristics
-    // Creates a 3D helix projected to 2D with depth
-    const helixAngle = (index * 135) * (Math.PI / 180); // Golden angle for natural packing
-    const helixRadius = 6 + (index % 3) * 2; // Varying radius for complexity
-    const verticalSpread = (index - 3.5) * 1.5; // Spread along vertical axis
+    // Folded: use random pattern for varied shapes
+    const { baseAngle, angleMultiplier, radiusBase, radiusVariation, verticalSpread, centerOffsetX, centerOffsetY } = foldPattern;
+    const helixAngle = ((baseAngle + index * angleMultiplier) * Math.PI) / 180;
+    const helixRadius = radiusBase + (index % 3) * radiusVariation;
+    const vSpread = (index - 3.5) * verticalSpread;
 
-    const foldedX = 20 + Math.cos(helixAngle) * helixRadius;
-    const foldedY = 20 + Math.sin(helixAngle) * (helixRadius * 0.6) + verticalSpread;
+    const foldedX = 20 + centerOffsetX + Math.cos(helixAngle) * helixRadius;
+    const foldedY = 20 + centerOffsetY + Math.sin(helixAngle) * (helixRadius * 0.6) + vSpread;
 
     // Depth simulation - items "further back" are smaller
     const depth = Math.sin(helixAngle + Math.PI / 4);
