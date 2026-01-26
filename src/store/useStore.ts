@@ -51,6 +51,10 @@ interface AppState {
   dashboardShowTodayButton: boolean;
   dashboardOnToday: (() => void) | null;
   setDashboardState: (showToday: boolean, onToday: (() => void) | null) => void;
+
+  // Floating action button state
+  showFloatingAddButton: boolean;
+  setShowFloatingAddButton: (show: boolean) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -218,6 +222,10 @@ export const useStore = create<AppState>()(
         dashboardShowTodayButton: showToday,
         dashboardOnToday: onToday
       }),
+
+      // Floating action button
+      showFloatingAddButton: false,
+      setShowFloatingAddButton: (show) => set({ showFloatingAddButton: show }),
     }),
     {
       name: 'protee-storage',

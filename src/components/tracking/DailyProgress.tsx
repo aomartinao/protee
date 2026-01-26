@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Flame, Dumbbell, Plus, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { Flame, Dumbbell, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useStore } from '@/store/useStore';
 import { ProgressRing } from './ProgressRing';
 import { Button } from '@/components/ui/button';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
@@ -68,6 +69,13 @@ export function DailyProgress({
   onDeleteEntry,
 }: DailyProgressProps) {
   const navigate = useNavigate();
+  const { setShowFloatingAddButton } = useStore();
+
+  // Show floating add button only on today
+  useEffect(() => {
+    setShowFloatingAddButton(isToday);
+    return () => setShowFloatingAddButton(false);
+  }, [isToday, setShowFloatingAddButton]);
 
   // Swipe state for date navigation
   const swipeStartX = useRef(0);
@@ -399,16 +407,6 @@ export function DailyProgress({
         </button>
       </div>
 
-      {/* Floating Add Button - only for today */}
-      {isToday && (
-        <Button
-          size="icon"
-          className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-lg z-50"
-          onClick={() => navigate('/chat')}
-        >
-          <Plus className="h-7 w-7" />
-        </Button>
-      )}
     </div>
   );
 }

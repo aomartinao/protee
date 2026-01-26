@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Settings, LogOut, Trash2, CalendarCheck } from 'lucide-react';
+import { Settings, LogOut, Trash2, CalendarCheck, RefreshCw } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { version } from '../../../package.json';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
+import { useUpdateAvailable } from '@/hooks/useUpdateAvailable';
 import { clearAllChatMessages } from '@/db';
 import {
   AlertDialog,
@@ -21,6 +22,7 @@ export function Header() {
   const location = useLocation();
   const { user, signOut } = useAuthStore();
   const { clearMessages, clearAdvisorMessages, dashboardShowTodayButton, dashboardOnToday } = useStore();
+  const { updateAvailable, updateApp } = useUpdateAvailable();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [advisorClearDialogOpen, setAdvisorClearDialogOpen] = useState(false);
 
@@ -31,6 +33,15 @@ export function Header() {
           <span className="flex items-center gap-2">
             Protee
             <span className="text-xs font-normal text-muted-foreground">v{version}</span>
+            {updateAvailable && (
+              <button
+                onClick={updateApp}
+                className="text-xs font-normal text-primary hover:underline flex items-center gap-1"
+              >
+                <RefreshCw className="h-3 w-3" />
+                update
+              </button>
+            )}
           </span>
         );
       case '/chat':
