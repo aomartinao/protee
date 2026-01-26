@@ -7,89 +7,131 @@ interface ProteinSpinnerProps {
 }
 
 export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinSpinnerProps) {
-  // 5 amino acid circles that form a pentagon when folded
-  const aminoAcids = [0, 1, 2, 3, 4];
-  const colors = ['#60a5fa', '#4ade80', '#facc15', '#f87171', '#a78bfa']; // blue, green, yellow, red, purple
+  // 8 amino acids for a more complex chain
+  const aminoAcids = [0, 1, 2, 3, 4, 5, 6, 7];
+
+  // Colors representing different amino acid types (hydrophobic, polar, charged, etc.)
+  const colors = [
+    '#3b82f6', // blue - polar
+    '#22c55e', // green - hydrophobic
+    '#eab308', // yellow - polar
+    '#ef4444', // red - charged
+    '#8b5cf6', // purple - aromatic
+    '#06b6d4', // cyan - polar
+    '#f97316', // orange - hydrophobic
+    '#ec4899', // pink - charged
+  ];
+
+  const foldAmount = isSpinning ? 1 : progress;
+
+  // Calculate positions for each amino acid
+  const getPosition = (index: number) => {
+    // Unfolded: wavy horizontal chain
+    const waveAmplitude = 3;
+    const linearX = 4 + index * 4.5;
+    const linearY = 20 + Math.sin(index * 0.8) * waveAmplitude;
+
+    // Folded: compact globular structure with alpha helix characteristics
+    // Creates a 3D helix projected to 2D with depth
+    const helixAngle = (index * 135) * (Math.PI / 180); // Golden angle for natural packing
+    const helixRadius = 6 + (index % 3) * 2; // Varying radius for complexity
+    const verticalSpread = (index - 3.5) * 1.5; // Spread along vertical axis
+
+    const foldedX = 20 + Math.cos(helixAngle) * helixRadius;
+    const foldedY = 20 + Math.sin(helixAngle) * (helixRadius * 0.6) + verticalSpread;
+
+    // Depth simulation - items "further back" are smaller
+    const depth = Math.sin(helixAngle + Math.PI / 4);
+    const foldedSize = 2.5 + depth * 0.8;
+
+    // Interpolate
+    const x = linearX + (foldedX - linearX) * foldAmount;
+    const y = linearY + (foldedY - linearY) * foldAmount;
+    const size = 2.2 + (foldedSize - 2.2) * foldAmount;
+
+    return { x, y, size, depth };
+  };
+
+  // Sort by depth for proper layering when folded
+  const sortedAcids = [...aminoAcids].sort((a, b) => {
+    if (foldAmount < 0.5) return 0;
+    return getPosition(a).depth - getPosition(b).depth;
+  });
 
   return (
     <div
-      className={cn('relative w-8 h-8', className)}
+      className={cn('relative w-10 h-10', className)}
       style={{
-        animation: isSpinning ? 'spin 1.5s linear infinite' : undefined,
+        animation: isSpinning ? 'spin 2s ease-in-out infinite' : undefined,
       }}
     >
-      <svg viewBox="0 0 32 32" className="w-full h-full">
-        {/* Connecting bonds - render first so circles appear on top */}
-        {aminoAcids.map((i) => {
-          const nextI = (i + 1) % 5;
-          const foldAmount = isSpinning ? 1 : progress;
+      <svg viewBox="0 0 40 40" className="w-full h-full">
+        {/* Backbone bonds - curved lines connecting amino acids */}
+        {aminoAcids.slice(0, -1).map((i) => {
+          const pos1 = getPosition(i);
+          const pos2 = getPosition(i + 1);
 
-          // Linear positions (unfolded - horizontal chain)
-          const linearX1 = 4 + i * 6;
-          const linearX2 = 4 + nextI * 6;
-          const linearY = 16;
-
-          // Folded positions (pentagon)
-          const angle1 = (i * 72 - 90) * (Math.PI / 180);
-          const angle2 = (nextI * 72 - 90) * (Math.PI / 180);
-          const radius = 10;
-          const foldedX1 = 16 + Math.cos(angle1) * radius;
-          const foldedY1 = 16 + Math.sin(angle1) * radius;
-          const foldedX2 = 16 + Math.cos(angle2) * radius;
-          const foldedY2 = 16 + Math.sin(angle2) * radius;
-
-          // Interpolate
-          const x1 = linearX1 + (foldedX1 - linearX1) * foldAmount;
-          const y1 = linearY + (foldedY1 - linearY) * foldAmount;
-          const x2 = linearX2 + (foldedX2 - linearX2) * foldAmount;
-          const y2 = linearY + (foldedY2 - linearY) * foldAmount;
-
-          // Only show bond to next adjacent amino acid (not closing the pentagon when unfolded)
-          if (i === 4 && foldAmount < 0.8) return null;
+          // Create curved path between amino acids
+          const midX = (pos1.x + pos2.x) / 2;
+          const midY = (pos1.y + pos2.y) / 2 - (1 - foldAmount) * 2;
 
           return (
-            <line
+            <path
               key={`bond-${i}`}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
+              d={`M ${pos1.x} ${pos1.y} Q ${midX} ${midY} ${pos2.x} ${pos2.y}`}
+              fill="none"
               stroke="currentColor"
-              className="text-muted-foreground/40"
-              strokeWidth={2}
+              className="text-muted-foreground/30"
+              strokeWidth={1.5}
               strokeLinecap="round"
             />
           );
         })}
 
-        {/* Amino acid circles */}
-        {aminoAcids.map((i) => {
-          const foldAmount = isSpinning ? 1 : progress;
+        {/* Hydrogen bonds (secondary structure) - only visible when folding */}
+        {foldAmount > 0.3 && (
+          <>
+            {/* Simulate hydrogen bonds in helix */}
+            {[0, 2, 4].map((i) => {
+              if (i + 3 >= aminoAcids.length) return null;
+              const pos1 = getPosition(i);
+              const pos2 = getPosition(i + 3);
+              const opacity = Math.min((foldAmount - 0.3) * 2, 0.3);
 
-          // Linear positions (unfolded)
-          const linearX = 4 + i * 6;
-          const linearY = 16;
+              return (
+                <line
+                  key={`hbond-${i}`}
+                  x1={pos1.x}
+                  y1={pos1.y}
+                  x2={pos2.x}
+                  y2={pos2.y}
+                  stroke="#94a3b8"
+                  strokeWidth={0.5}
+                  strokeDasharray="2,2"
+                  opacity={opacity}
+                />
+              );
+            })}
+          </>
+        )}
 
-          // Folded positions (pentagon shape, rotated so first is at top)
-          const angle = (i * 72 - 90) * (Math.PI / 180);
-          const radius = 10;
-          const foldedX = 16 + Math.cos(angle) * radius;
-          const foldedY = 16 + Math.sin(angle) * radius;
+        {/* Amino acid residues - rendered in depth order */}
+        {sortedAcids.map((i) => {
+          const { x, y, size, depth } = getPosition(i);
 
-          // Interpolate between linear and folded
-          const x = linearX + (foldedX - linearX) * foldAmount;
-          const y = linearY + (foldedY - linearY) * foldAmount;
+          // Brightness based on depth when folded
+          const brightness = foldAmount > 0.5 ? 0.85 + depth * 0.15 : 1;
 
           return (
             <circle
               key={i}
               cx={x}
               cy={y}
-              r={3.5}
+              r={size}
               fill={colors[i]}
-              className="transition-all"
               style={{
-                filter: isSpinning ? 'brightness(1.1)' : undefined,
+                filter: `brightness(${brightness})`,
+                transition: 'all 0.1s ease-out',
               }}
             />
           );

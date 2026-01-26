@@ -87,7 +87,6 @@ export function PullToRefresh({
   }, [touchStart, pullDistance, isRefreshing, disabled, onRefresh]);
 
   const progress = Math.min(pullDistance / PULL_THRESHOLD, 1);
-  const shouldTrigger = pullDistance >= PULL_THRESHOLD;
 
   return (
     <div className={cn('relative flex flex-col h-full', className)}>
@@ -96,23 +95,14 @@ export function PullToRefresh({
         <div
           className="fixed left-0 right-0 flex justify-center items-center z-50 pointer-events-none"
           style={{
-            top: 56, // Below header (h-14 = 56px)
+            top: 60,
+            opacity: Math.min(progress * 2, 1),
           }}
         >
-          <div
-            className={cn(
-              'p-2 rounded-full bg-background shadow-lg transition-all duration-200',
-              shouldTrigger || isRefreshing ? 'bg-primary/10' : 'bg-muted'
-            )}
-            style={{
-              opacity: Math.min(progress * 2, 1),
-            }}
-          >
-            <ProteinSpinner
-              isSpinning={isRefreshing}
-              progress={progress}
-            />
-          </div>
+          <ProteinSpinner
+            isSpinning={isRefreshing}
+            progress={progress}
+          />
         </div>
       )}
 
