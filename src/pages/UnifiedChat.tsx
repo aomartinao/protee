@@ -10,7 +10,7 @@ import { useProgressInsights } from '@/hooks/useProgressInsights';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
-import { addFoodEntry } from '@/db';
+import { addFoodEntry, deleteFoodEntryBySyncId } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits } from '@/lib/utils';
 import { useTodayEntries } from '@/hooks/useProteinData';
@@ -74,10 +74,31 @@ export function UnifiedChat() {
 
     // Get recent meal names for context
     const recentMeals = messages
-      .filter(m => m.foodEntry || m.foodEntrySyncId)
+      .filter(m => m.foodEntry && m.foodEntrySyncId && !m.foodEntry.deletedAt)
       .slice(-5)
       .map(m => m.foodEntry?.foodName)
       .filter(Boolean) as string[];
+
+    // Get the most recent logged (non-deleted) entry for correction detection
+    const recentLoggedMessages = messages
+      .filter(m => m.foodEntry && m.foodEntrySyncId && !m.foodEntry.deletedAt)
+      .slice(-1);
+
+    let lastLoggedEntry;
+    if (recentLoggedMessages.length > 0) {
+      const lastMsg = recentLoggedMessages[0];
+      const entry = lastMsg.foodEntry!;
+      const loggedAt = entry.createdAt ? new Date(entry.createdAt).getTime() : Date.now();
+      const minutesAgo = Math.round((Date.now() - loggedAt) / 60000);
+
+      lastLoggedEntry = {
+        syncId: entry.syncId!,
+        foodName: entry.foodName,
+        protein: entry.protein,
+        calories: entry.calories,
+        loggedMinutesAgo: minutesAgo,
+      };
+    }
 
     return {
       goal: settings.defaultGoal,
@@ -89,6 +110,7 @@ export function UnifiedChat() {
       nickname,
       insights,
       recentMeals,
+      lastLoggedEntry,
     };
   }, [settings, insights, nickname, messages]);
 
@@ -220,8 +242,45 @@ export function UnifiedChat() {
         { role: 'assistant', content: result.message },
       ]);
 
+      // Handle food correction intent
+      if (result.intent === 'correct_food' && result.foodAnalysis && result.correctsPreviousEntry) {
+        const ctx = context; // context from getContext() above
+
+        // Cancel the previous entry
+        if (ctx.lastLoggedEntry) {
+          // Soft delete the previous entry in the database
+          await deleteFoodEntryBySyncId(ctx.lastLoggedEntry.syncId);
+
+          // Find the message with this entry and mark it as cancelled
+          const prevMessage = messages.find(m => m.foodEntrySyncId === ctx.lastLoggedEntry!.syncId);
+          if (prevMessage && prevMessage.foodEntry) {
+            updateMessage(prevMessage.syncId, {
+              foodEntry: {
+                ...prevMessage.foodEntry,
+                deletedAt: new Date(),
+              },
+            });
+          }
+        }
+
+        updateMessage(loadingSyncId, {
+          isLoading: false,
+          content: result.message,
+        });
+
+        // Set pending food for confirmation (the corrected entry)
+        setPendingFood({
+          messageSyncId: loadingSyncId,
+          analysis: result.foodAnalysis,
+          imageData: imageData || undefined,
+        });
+
+        if (result.quickReplies) {
+          setShowQuickReplies(result.quickReplies);
+        }
+      }
       // Handle food logging intent
-      if (result.intent === 'log_food' && result.foodAnalysis) {
+      else if (result.intent === 'log_food' && result.foodAnalysis) {
         updateMessage(loadingSyncId, {
           isLoading: false,
           content: result.message,
@@ -363,14 +422,14 @@ export function UnifiedChat() {
   // Loading state
   if (!settingsLoaded || !messagesLoaded) {
     return (
-      <div className="flex flex-col h-[calc(100vh-8rem)] items-center justify-center">
+      <div className="flex flex-col h-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className="flex flex-col h-full">
       {/* Compact progress bar */}
       <div className="px-4 py-2 border-b bg-muted/30">
         <div className="flex items-center justify-between text-sm">

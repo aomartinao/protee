@@ -3,6 +3,14 @@ import type { DietaryPreferences } from '@/types';
 import type { ProgressInsights } from '@/hooks/useProgressInsights';
 import { sendProxyRequest, parseProxyResponse, type ProxyMessageContent } from './proxy';
 
+export interface LastLoggedEntry {
+  syncId: string;
+  foodName: string;
+  protein: number;
+  calories?: number;
+  loggedMinutesAgo: number;
+}
+
 export interface UnifiedContext {
   goal: number;
   consumed: number;
@@ -13,6 +21,7 @@ export interface UnifiedContext {
   nickname?: string;
   insights: ProgressInsights;
   recentMeals?: string[]; // Last few meals for context
+  lastLoggedEntry?: LastLoggedEntry; // Most recent entry for correction detection
 }
 
 export interface UnifiedMessage {
@@ -21,7 +30,7 @@ export interface UnifiedMessage {
   imageData?: string;
 }
 
-export type MessageIntent = 'log_food' | 'analyze_menu' | 'question' | 'greeting' | 'other';
+export type MessageIntent = 'log_food' | 'correct_food' | 'analyze_menu' | 'question' | 'greeting' | 'other';
 
 export interface FoodAnalysis {
   foodName: string;
@@ -53,10 +62,13 @@ export interface UnifiedResponse {
     protein: number;
     reason: string;
   }[];
+
+  // For corrections: indicates this replaces the previous entry
+  correctsPreviousEntry?: boolean;
 }
 
 function buildUnifiedSystemPrompt(context: UnifiedContext): string {
-  const { goal, consumed, remaining, currentTime, preferences, nickname, insights, recentMeals } = context;
+  const { goal, consumed, remaining, currentTime, preferences, nickname, insights, recentMeals, lastLoggedEntry } = context;
 
   const hour = currentTime.getHours();
   let timeOfDay = 'morning';
@@ -74,6 +86,11 @@ function buildUnifiedSystemPrompt(context: UnifiedContext): string {
 
   const name = nickname || 'friend';
 
+  // Build last entry info for correction detection
+  const lastEntryInfo = lastLoggedEntry
+    ? `\nLAST LOGGED (${lastLoggedEntry.loggedMinutesAgo}min ago): "${lastLoggedEntry.foodName}" - ${lastLoggedEntry.protein}g protein${lastLoggedEntry.calories ? `, ${lastLoggedEntry.calories} kcal` : ''}`
+    : '';
+
   return `You are a concise nutrition coach helping ${name} hit their protein goals. Channel Dr. Peter Attia's longevity-focused approach but BE BRIEF.
 
 YOUR ROLE: Help log meals AND provide quick coaching - all in one chat.
@@ -83,7 +100,7 @@ CURRENT STATUS:
 - Time: ${timeOfDay} (${currentTime.toLocaleTimeString()})
 - Streak: ${insights.currentStreak} days
 ${insights.hoursSinceLastMeal !== null ? `- Last meal: ${insights.hoursSinceLastMeal}h ago` : ''}
-${recentMeals?.length ? `- Recent: ${recentMeals.slice(0, 3).join(', ')}` : ''}
+${recentMeals?.length ? `- Recent: ${recentMeals.slice(0, 3).join(', ')}` : ''}${lastEntryInfo}
 
 USER PROFILE: ${restrictionsList || 'No restrictions'}
 
@@ -93,17 +110,27 @@ YOU MUST DETECT THE USER'S INTENT:
    - Respond with JSON analysis + brief encouraging comment
    - Format: {"intent":"log_food","food":{"name":"...","protein":N,"calories":N,"confidence":"high|medium|low"},"comment":"Brief reaction (1 sentence max)"}
 
-2. **MENU PHOTO** (image of a restaurant menu):
+2. **CORRECTING PREVIOUS ENTRY** (user says "actually it was X" or "oh it was just 70g" or "make that 200g" shortly after logging):
+   - This REPLACES the previous entry, not adds to it
+   - Use when user is clearly correcting/adjusting what they just logged
+   - Format: {"intent":"correct_food","food":{"name":"...","protein":N,"calories":N,"confidence":"high"},"correctsPrevious":true,"comment":"Got it, updated!"}
+
+3. **MENU PHOTO** (image of a restaurant menu):
    - Identify best protein options for their remaining goal
    - Format: {"intent":"analyze_menu","recommendations":[{"name":"...","protein":N,"reason":"brief"}],"comment":"Brief intro"}
 
-3. **FOOD PHOTO** (image of actual food):
+4. **FOOD PHOTO** (image of actual food):
    - Analyze what it is and estimate nutrition
    - Format: {"intent":"log_food","food":{"name":"...","protein":N,"calories":N,"confidence":"medium"},"comment":"Brief reaction"}
 
-4. **QUESTION/CHAT** (asking for suggestions, advice, etc.):
+5. **QUESTION/CHAT** (asking for suggestions, advice, etc.):
    - Give brief, actionable advice
    - Format: {"intent":"question","message":"Your response (2-3 sentences max)","quickReplies":["Option1","Option2"]}
+
+CORRECTION DETECTION - use "correct_food" intent when:
+- User says "actually", "oh wait", "no", "make that", "it was actually", "just X" right after logging
+- The correction refers to the same food item (e.g., adjusting portion size)
+- It's within a few minutes of the previous entry
 
 TONE RULES:
 - MAX 1-2 sentences for comments
@@ -112,12 +139,6 @@ TONE RULES:
 - Gentle nudges, never guilt
 - Skip the lecture - they know protein matters
 - Quick tips only when genuinely helpful
-
-EXAMPLES OF GOOD BRIEF RESPONSES:
-- "Eggs are a perfect start. ${remaining - 12}g to go!"
-- "Solid protein hit. You're cruising today."
-- "Greek yogurt before bed = overnight muscle repair. Smart."
-- "That's light on protein - want me to suggest an add-on?"
 
 ALWAYS respond with valid JSON. The "comment" or "message" field is what the user sees.`;
 }
@@ -228,6 +249,23 @@ export async function processUnifiedMessage(
           confidence: parsed.food.confidence || 'medium',
           consumedAt: parsed.food.consumedAt,
         },
+        quickReplies: parsed.quickReplies,
+      };
+    }
+
+    // Handle corrections - same as log_food but with correctsPreviousEntry flag
+    if (parsed.intent === 'correct_food' && parsed.food) {
+      return {
+        intent: 'correct_food',
+        message: parsed.comment || 'Updated!',
+        foodAnalysis: {
+          foodName: parsed.food.name,
+          protein: parsed.food.protein,
+          calories: parsed.food.calories,
+          confidence: parsed.food.confidence || 'high',
+          consumedAt: parsed.food.consumedAt,
+        },
+        correctsPreviousEntry: true,
         quickReplies: parsed.quickReplies,
       };
     }

@@ -95,6 +95,19 @@ export async function deleteFoodEntry(id: number): Promise<void> {
   });
 }
 
+export async function deleteFoodEntryBySyncId(syncId: string): Promise<boolean> {
+  // Soft delete by syncId - returns true if entry was found and deleted
+  const entry = await getEntryBySyncId(syncId);
+  if (entry?.id) {
+    await db.foodEntries.update(entry.id, {
+      deletedAt: new Date(),
+      updatedAt: new Date()
+    });
+    return true;
+  }
+  return false;
+}
+
 export async function hardDeleteFoodEntry(id: number): Promise<void> {
   return db.foodEntries.delete(id);
 }
