@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { FoodCard } from '@/components/chat/FoodCard';
+import { LoggedFoodCard } from '@/components/chat/LoggedFoodCard';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { useSettings } from '@/hooks/useProteinData';
@@ -11,7 +12,8 @@ import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
 import { addFoodEntry } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
-import { getToday } from '@/lib/utils';
+import { getToday, calculateMPSHits } from '@/lib/utils';
+import { useTodayEntries } from '@/hooks/useProteinData';
 import {
   processUnifiedMessage,
   generateSmartGreeting,
@@ -33,6 +35,13 @@ export function UnifiedChat() {
   const { user } = useAuthStore();
   const insights = useProgressInsights();
   const nickname = getNickname(user?.email);
+  const todayEntries = useTodayEntries();
+
+  // Calculate which entries are MPS hits
+  const mpsHitSyncIds = useMemo(() => {
+    const hits = calculateMPSHits(todayEntries);
+    return new Set(hits.map(h => h.syncId).filter(Boolean));
+  }, [todayEntries]);
 
   const {
     messages,
@@ -291,24 +300,28 @@ export function UnifiedChat() {
     }
 
     const foodEntrySyncId = crypto.randomUUID();
+    const now = new Date();
 
-    await addFoodEntry({
+    const foodEntry = {
       syncId: foodEntrySyncId,
       date: entryDate,
-      source: imageData ? 'photo' : 'text',
+      source: (imageData ? 'photo' : 'text') as 'photo' | 'text',
       foodName: analysis.foodName,
       protein: analysis.protein,
       calories: analysis.calories,
       confidence: analysis.confidence,
       imageData,
-      consumedAt,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+      consumedAt: consumedAt || now,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-    // Link message to food entry
+    await addFoodEntry(foodEntry);
+
+    // Store full food entry on the message (for display in chat)
     updateMessage(messageSyncId, {
       foodEntrySyncId,
+      foodEntry,
     });
 
     // Add learned preference (favorite)
@@ -317,14 +330,6 @@ export function UnifiedChat() {
     triggerSync();
     setPendingFood(null);
     setShowQuickReplies([]);
-
-    // Brief confirmation
-    addMessage({
-      syncId: crypto.randomUUID(),
-      type: 'assistant',
-      content: `✓ Logged! ${insights.remaining - analysis.protein}g to go.`,
-      timestamp: new Date(),
-    });
   };
 
   // Edit food entry
@@ -387,13 +392,29 @@ export function UnifiedChat() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 pb-2 min-h-0 scroll-smooth overscroll-contain">
-        {messages.map((message, index) => (
-          <MessageBubble
-            key={message.syncId}
-            message={message}
-            isLatestMessage={index === messages.length - 1}
-          />
-        ))}
+        {messages.map((message, index) => {
+          // Show LoggedFoodCard for messages with confirmed food entries
+          if (message.foodEntry && message.foodEntrySyncId) {
+            const isMPSHit = mpsHitSyncIds.has(message.foodEntrySyncId);
+            return (
+              <div key={message.syncId} className="mb-3">
+                <LoggedFoodCard
+                  entry={message.foodEntry}
+                  showCalories={settings.calorieTrackingEnabled}
+                  isMPSHit={isMPSHit}
+                />
+              </div>
+            );
+          }
+
+          return (
+            <MessageBubble
+              key={message.syncId}
+              message={message}
+              isLatestMessage={index === messages.length - 1}
+            />
+          );
+        })}
 
         {/* Pending food card */}
         {pendingFood && (
