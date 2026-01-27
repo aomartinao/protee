@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
@@ -10,6 +10,7 @@ import { useCallback } from 'react';
 
 export function Layout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { syncData, isSyncing, user } = useAuthStore();
   const { showFloatingAddButton } = useStore();
 
@@ -18,16 +19,25 @@ export function Layout() {
     await syncData();
   }, [syncData, user]);
 
+  // Disable pull-to-refresh on chat and advisor pages (they have their own scroll containers)
+  const disablePullToRefresh = location.pathname === '/chat' || location.pathname === '/advisor';
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <PullToRefresh
-        onRefresh={handleRefresh}
-        disabled={isSyncing}
-        className="flex-1 pb-24"
-      >
-        <Outlet />
-      </PullToRefresh>
+      {disablePullToRefresh ? (
+        <div className="flex-1 pb-24 overflow-hidden">
+          <Outlet />
+        </div>
+      ) : (
+        <PullToRefresh
+          onRefresh={handleRefresh}
+          disabled={isSyncing}
+          className="flex-1 pb-24"
+        >
+          <Outlet />
+        </PullToRefresh>
+      )}
       <MobileNav />
 
       {/* Floating Add Button - rendered at root level to stay fixed */}

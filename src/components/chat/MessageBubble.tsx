@@ -45,7 +45,9 @@ export function MessageBubble({
         className={cn(
           'max-w-[85%]',
           isUser
-            ? 'rounded-2xl rounded-br-md px-4 py-2 bg-primary text-primary-foreground'
+            ? message.imageData
+              ? 'rounded-2xl rounded-br-md overflow-hidden bg-primary text-primary-foreground'
+              : 'rounded-2xl rounded-br-md px-4 py-2 bg-primary text-primary-foreground'
             : 'text-foreground/80 text-sm py-1'
         )}
       >
@@ -57,11 +59,11 @@ export function MessageBubble({
               <img
                 src={message.imageData}
                 alt="Food"
-                className="rounded-lg mb-2 max-w-full"
+                className="max-w-full block"
               />
             )}
             {message.content && (
-              <div className="text-sm">
+              <div className={cn('text-sm', message.imageData && isUser && 'px-4 py-2')}>
                 <MarkdownText>{message.content}</MarkdownText>
               </div>
             )}
