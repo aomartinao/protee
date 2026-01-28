@@ -1,19 +1,30 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { subDays } from 'date-fns';
-import { Loader2 } from 'lucide-react';
+import { subDays, format } from 'date-fns';
+import { Loader2, Send, Sparkles } from 'lucide-react';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { FoodCard } from '@/components/chat/FoodCard';
 import { LoggedFoodCard } from '@/components/chat/LoggedFoodCard';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { ChatInput } from '@/components/chat/ChatInput';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { useSettings, useRecentEntries } from '@/hooks/useProteinData';
 import { useProgressInsights } from '@/hooks/useProgressInsights';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
-import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages } from '@/db';
+import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntryBySyncId } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits } from '@/lib/utils';
+import { refineAnalysis } from '@/services/ai/client';
 import {
   processUnifiedMessage,
   generateSmartGreeting,
@@ -79,6 +90,16 @@ export function UnifiedChat() {
   const [showQuickReplies, setShowQuickReplies] = useState<string[]>([]);
   const [pendingFood, setPendingFood] = useState<PendingFood | null>(null);
   const [initialized, setInitialized] = useState(false);
+
+  // Edit dialog state
+  const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editProtein, setEditProtein] = useState('');
+  const [editCalories, setEditCalories] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editRefinement, setEditRefinement] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
 
   // Load messages on mount
   useEffect(() => {
@@ -447,6 +468,88 @@ export function UnifiedChat() {
     handleSendText(reply);
   };
 
+  // Handle edit click on logged food card
+  const handleEditLoggedFood = (entry: FoodEntry) => {
+    setEditingEntry(entry);
+    setEditName(entry.foodName);
+    setEditProtein(entry.protein.toString());
+    setEditCalories(entry.calories?.toString() || '');
+    setEditDate(entry.date);
+    const timeSource = entry.consumedAt || entry.createdAt;
+    setEditTime(format(timeSource, 'HH:mm'));
+  };
+
+  // Save edited food entry
+  const handleSaveEdit = async () => {
+    if (!editingEntry?.id) return;
+
+    let consumedAt: Date | undefined;
+    if (editDate && editTime) {
+      const [year, month, day] = editDate.split('-').map(Number);
+      const [hours, minutes] = editTime.split(':').map(Number);
+      consumedAt = new Date(year, month - 1, day, hours, minutes);
+    }
+
+    const updates: Partial<FoodEntry> = {
+      foodName: editName,
+      protein: parseInt(editProtein, 10) || 0,
+      calories: editCalories ? parseInt(editCalories, 10) : undefined,
+      date: editDate || editingEntry.date,
+      consumedAt,
+      updatedAt: new Date(),
+    };
+
+    await updateFoodEntry(editingEntry.id, updates);
+    triggerSync();
+    setEditingEntry(null);
+    setEditRefinement('');
+  };
+
+  // AI refinement for edit
+  const handleRefineEdit = async () => {
+    const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+    const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
+
+    if (!editRefinement.trim() || !hasApiAccess) return;
+
+    setIsRefining(true);
+    try {
+      const originalAnalysis = {
+        foodName: editName,
+        protein: parseInt(editProtein, 10) || 0,
+        calories: editCalories ? parseInt(editCalories, 10) : 0,
+        confidence: editingEntry?.confidence || ('medium' as const),
+        consumedAt: editDate && editTime
+          ? { parsedDate: editDate, parsedTime: editTime }
+          : undefined,
+      };
+
+      const result = await refineAnalysis(settings.claudeApiKey || null, originalAnalysis, editRefinement, useProxy);
+
+      setEditName(result.foodName);
+      setEditProtein(result.protein.toString());
+      if (result.calories !== undefined) {
+        setEditCalories(result.calories.toString());
+      }
+      if (result.consumedAt) {
+        setEditDate(result.consumedAt.parsedDate);
+        setEditTime(result.consumedAt.parsedTime);
+      }
+
+      setEditRefinement('');
+    } catch (error) {
+      console.error('Refinement failed:', error);
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  // Delete logged food entry
+  const handleDeleteLoggedFood = async (syncId: string) => {
+    await deleteFoodEntryBySyncId(syncId);
+    triggerSync();
+  };
+
   // Loading state
   if (!settingsLoaded || !messagesLoaded) {
     return (
@@ -485,15 +588,22 @@ export function UnifiedChat() {
           const foodEntry = message.foodEntry ||
             (message.foodEntrySyncId ? entriesBySyncId.get(message.foodEntrySyncId) : undefined);
 
-          if (foodEntry && message.foodEntrySyncId) {
+          if (foodEntry && message.foodEntrySyncId && !foodEntry.deletedAt) {
             const isMPSHit = mpsHitSyncIds.has(message.foodEntrySyncId);
+            const entrySyncId = message.foodEntrySyncId;
             return (
               <div key={message.syncId} className="mb-3">
-                <LoggedFoodCard
-                  entry={foodEntry}
-                  showCalories={settings.calorieTrackingEnabled}
-                  isMPSHit={isMPSHit}
-                />
+                <SwipeableRow
+                  itemName={foodEntry.foodName}
+                  onEdit={() => handleEditLoggedFood(foodEntry)}
+                  onDelete={() => handleDeleteLoggedFood(entrySyncId)}
+                >
+                  <LoggedFoodCard
+                    entry={foodEntry}
+                    showCalories={settings.calorieTrackingEnabled}
+                    isMPSHit={isMPSHit}
+                  />
+                </SwipeableRow>
               </div>
             );
           }
@@ -546,6 +656,116 @@ export function UnifiedChat() {
         onSendImage={handleSendImage}
         disabled={isProcessing}
       />
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Entry</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Food Name</label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="h-11"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Protein (g)</label>
+                <Input
+                  type="number"
+                  value={editProtein}
+                  onChange={(e) => setEditProtein(e.target.value)}
+                  min={0}
+                  max={500}
+                  className="h-11"
+                />
+              </div>
+              {settings.calorieTrackingEnabled && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Calories</label>
+                  <Input
+                    type="number"
+                    value={editCalories}
+                    onChange={(e) => setEditCalories(e.target.value)}
+                    min={0}
+                    max={10000}
+                    className="h-11"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Date</label>
+                <Input
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Time</label>
+                <Input
+                  type="time"
+                  value={editTime}
+                  onChange={(e) => setEditTime(e.target.value)}
+                  className="h-11"
+                />
+              </div>
+            </div>
+
+            {/* AI Refinement Section */}
+            {(settings.claudeApiKey || settings.hasAdminApiKey) && (
+              <div className="pt-4 border-t space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Or describe what changed
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    value={editRefinement}
+                    onChange={(e) => setEditRefinement(e.target.value)}
+                    placeholder="e.g., it was 200g not 100g..."
+                    disabled={isRefining}
+                    className="h-11"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleRefineEdit();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="h-11 w-11"
+                    onClick={handleRefineEdit}
+                    disabled={!editRefinement.trim() || isRefining}
+                  >
+                    {isRefining ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setEditingEntry(null); setEditRefinement(''); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
