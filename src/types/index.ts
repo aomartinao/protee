@@ -28,6 +28,11 @@ export interface UserSettings {
   advisorOnboarded?: boolean;               // whether user completed advisor onboarding
   advisorOnboardingStarted?: boolean;       // whether user has started onboarding (enables settings)
   logWelcomeShown?: boolean;                // whether the log welcome message has been shown
+  // Locale settings
+  weekStartsOn?: 'sunday' | 'monday';       // which day the week starts on
+  timeFormat?: '12h' | '24h';               // time display format
+  unitSystem?: 'metric' | 'imperial';       // measurement system
+  energyUnit?: 'kcal' | 'kj';               // energy display unit
 }
 
 export interface DailyGoal {

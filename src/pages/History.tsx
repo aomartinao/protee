@@ -89,6 +89,7 @@ export function History() {
             goals={dailyGoals}
             defaultGoal={settings.defaultGoal}
             mpsTrackingEnabled={settings.mpsTrackingEnabled}
+            weekStartsOn={settings.weekStartsOn}
           />
         )}
       </div>

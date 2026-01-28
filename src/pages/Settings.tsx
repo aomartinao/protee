@@ -12,7 +12,11 @@ import {
   Sparkles,
   Database,
   RefreshCw,
-  Loader2
+  Loader2,
+  Calendar,
+  Clock,
+  Ruler,
+  Flame,
 } from 'lucide-react';
 import { version } from '../../package.json';
 import { Button } from '@/components/ui/button';
@@ -313,6 +317,70 @@ export function Settings() {
                 onChange={() => updateSettings({ mpsTrackingEnabled: !settings.mpsTrackingEnabled })}
                 size="small"
               />
+            }
+          />
+        </SettingsSection>
+
+        {/* Locale Settings */}
+        <SettingsSection title="Display">
+          <SettingsRow
+            icon={Calendar}
+            iconColor="text-blue-500"
+            label="Week Starts On"
+            action={
+              <select
+                value={settings.weekStartsOn || 'monday'}
+                onChange={(e) => updateSettings({ weekStartsOn: e.target.value as 'sunday' | 'monday' })}
+                className="bg-muted text-sm rounded-lg px-3 py-1.5 border-0 focus:ring-2 focus:ring-primary"
+              >
+                <option value="monday">Monday</option>
+                <option value="sunday">Sunday</option>
+              </select>
+            }
+          />
+          <SettingsRow
+            icon={Clock}
+            iconColor="text-indigo-500"
+            label="Time Format"
+            action={
+              <select
+                value={settings.timeFormat || '24h'}
+                onChange={(e) => updateSettings({ timeFormat: e.target.value as '12h' | '24h' })}
+                className="bg-muted text-sm rounded-lg px-3 py-1.5 border-0 focus:ring-2 focus:ring-primary"
+              >
+                <option value="24h">24-hour</option>
+                <option value="12h">12-hour</option>
+              </select>
+            }
+          />
+          <SettingsRow
+            icon={Ruler}
+            iconColor="text-green-500"
+            label="Units"
+            action={
+              <select
+                value={settings.unitSystem || 'metric'}
+                onChange={(e) => updateSettings({ unitSystem: e.target.value as 'metric' | 'imperial' })}
+                className="bg-muted text-sm rounded-lg px-3 py-1.5 border-0 focus:ring-2 focus:ring-primary"
+              >
+                <option value="metric">Metric (kg, cm)</option>
+                <option value="imperial">Imperial (lb, in)</option>
+              </select>
+            }
+          />
+          <SettingsRow
+            icon={Flame}
+            iconColor="text-orange-500"
+            label="Energy Unit"
+            action={
+              <select
+                value={settings.energyUnit || 'kcal'}
+                onChange={(e) => updateSettings({ energyUnit: e.target.value as 'kcal' | 'kj' })}
+                className="bg-muted text-sm rounded-lg px-3 py-1.5 border-0 focus:ring-2 focus:ring-primary"
+              >
+                <option value="kcal">Calories (kcal)</option>
+                <option value="kj">Kilojoules (kJ)</option>
+              </select>
             }
           />
         </SettingsSection>

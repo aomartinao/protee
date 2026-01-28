@@ -21,32 +21,7 @@ interface CalendarViewProps {
   goals: Map<string, number>;
   defaultGoal: number;
   mpsTrackingEnabled?: boolean;
-}
-
-// Detect system/browser week start preference
-// Returns 0 for Sunday, 1 for Monday
-function getSystemWeekStartDay(): 0 | 1 {
-  try {
-    // Use Intl.Locale to detect week info if available (modern browsers)
-    const locale = new Intl.Locale(navigator.language);
-    // @ts-ignore - weekInfo is a newer API
-    if (locale.weekInfo?.firstDay !== undefined) {
-      // weekInfo.firstDay: 1 = Monday, 7 = Sunday
-      // @ts-ignore
-      return locale.weekInfo.firstDay === 7 ? 0 : 1;
-    }
-  } catch {
-    // Fallback
-  }
-
-  // Fallback: check common locales
-  const lang = navigator.language.toLowerCase();
-  // Countries that typically start week on Sunday: US, Canada, Japan, etc.
-  const sundayStartLocales = ['en-us', 'en-ca', 'ja', 'ko', 'zh', 'he', 'ar'];
-  const isSundayStart = sundayStartLocales.some(l => lang.startsWith(l.split('-')[0]) && lang.includes(l.split('-')[1] || ''));
-
-  // Most of the world starts on Monday
-  return isSundayStart ? 0 : 1;
+  weekStartsOn?: 'sunday' | 'monday';
 }
 
 export function CalendarView({
@@ -54,9 +29,12 @@ export function CalendarView({
   goals,
   defaultGoal,
   mpsTrackingEnabled = true,
+  weekStartsOn = 'monday',
 }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const weekStartsOn = getSystemWeekStartDay();
+
+  // Convert setting to number: 0 for Sunday, 1 for Monday
+  const weekStartDay = weekStartsOn === 'sunday' ? 0 : 1;
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -87,15 +65,15 @@ export function CalendarView({
 
   // Calculate padding days based on week start preference
   const firstDayOfMonth = getDay(monthStart); // 0 = Sunday, 1 = Monday, ...
-  const paddingDays = Array((firstDayOfMonth - weekStartsOn + 7) % 7).fill(null);
+  const paddingDays = Array((firstDayOfMonth - weekStartDay + 7) % 7).fill(null);
 
   // Weekday headers based on week start preference
   const weekDaysFromSunday = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  const weekDays = weekStartsOn === 1
+  const weekDays = weekStartDay === 1
     ? [...weekDaysFromSunday.slice(1), weekDaysFromSunday[0]] // Mon-Sun
     : weekDaysFromSunday; // Sun-Sat
 
-  // Calculate monthly stats
+  // Calculate monthly stats - only count days with entries
   const monthStats = useMemo(() => {
     let totalProtein = 0;
     let goalMetDays = 0;
@@ -116,6 +94,22 @@ export function CalendarView({
 
     return { totalProtein, goalMetDays, totalMpsHits, daysWithEntries };
   }, [days, dailyData, goals, defaultGoal]);
+
+  // Render MPS dots (up to 3)
+  const renderMpsDots = (count: number) => {
+    const dotsToShow = Math.min(count, 3);
+    return (
+      <div className="absolute top-0.5 right-0.5 flex gap-0.5">
+        {Array.from({ length: dotsToShow }).map((_, i) => (
+          <div
+            key={i}
+            className="w-1.5 h-1.5 rounded-full bg-purple-500"
+            title={`${count} MPS hit${count > 1 ? 's' : ''}`}
+          />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -198,7 +192,7 @@ export function CalendarView({
                 className={cn(
                   'aspect-square flex flex-col items-center justify-center rounded-xl text-sm relative transition-colors',
                   isToday && 'ring-2 ring-primary ring-offset-1',
-                  goalMet && 'bg-green-50',
+                  goalMet && 'bg-green-50 dark:bg-green-950/30',
                   !isSameMonth(day, currentMonth) && 'opacity-40'
                 )}
               >
@@ -206,7 +200,7 @@ export function CalendarView({
                   className={cn(
                     'font-medium text-sm',
                     isToday && 'text-primary font-bold',
-                    goalMet && !isToday && 'text-green-600',
+                    goalMet && !isToday && 'text-green-600 dark:text-green-400',
                     !hasEntry && !isToday && 'text-muted-foreground'
                   )}
                 >
@@ -215,17 +209,13 @@ export function CalendarView({
                 {hasEntry && (
                   <span className={cn(
                     'text-[10px] font-medium mt-0.5',
-                    goalMet ? 'text-green-600' : 'text-primary'
+                    goalMet ? 'text-green-600 dark:text-green-400' : 'text-primary'
                   )}>
                     {protein}g
                   </span>
                 )}
-                {/* MPS indicator */}
-                {mpsTrackingEnabled && mpsHits > 0 && (
-                  <div className="absolute top-0.5 right-0.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title={`${mpsHits} MPS hit${mpsHits > 1 ? 's' : ''}`} />
-                  </div>
-                )}
+                {/* MPS indicator - multiple dots */}
+                {mpsTrackingEnabled && mpsHits > 0 && renderMpsDots(mpsHits)}
               </div>
             );
           })}
@@ -239,13 +229,17 @@ export function CalendarView({
           <span>Today</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-md bg-green-50 border border-green-200" />
+          <div className="w-3 h-3 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800" />
           <span>Goal met</span>
         </div>
         {mpsTrackingEnabled && (
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-            <span>MPS hit</span>
+            <div className="flex gap-0.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+            </div>
+            <span>MPS hits</span>
           </div>
         )}
       </div>
