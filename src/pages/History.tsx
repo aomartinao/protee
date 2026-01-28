@@ -141,6 +141,7 @@ export function History() {
             weekOffset={weekOffset}
             onPrevWeek={handlePrevWeek}
             onNextWeek={handleNextWeek}
+            isSwiping={isSwiping}
           />
         )}
 

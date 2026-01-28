@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
 import { format, subDays, addDays, startOfDay } from 'date-fns';
 import {
-  BarChart,
   Bar,
   XAxis,
   YAxis,
   ResponsiveContainer,
   Tooltip,
   Cell,
+  ReferenceLine,
+  ComposedChart,
+  Line,
 } from 'recharts';
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Flame, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,7 @@ interface WeeklyChartProps {
   weekOffset: number;
   onPrevWeek: () => void;
   onNextWeek: () => void;
+  isSwiping?: boolean;
 }
 
 // Meal time categories based on consumedAt hour
@@ -62,11 +65,13 @@ interface DayData {
 export function WeeklyChart({
   entries,
   goal,
+  calorieGoal = 2000,
   calorieTrackingEnabled = false,
   mpsTrackingEnabled = true,
   weekOffset,
   onPrevWeek,
   onNextWeek,
+  isSwiping = false,
 }: WeeklyChartProps) {
   const chartData = useMemo(() => {
     const today = startOfDay(new Date());
@@ -149,9 +154,9 @@ export function WeeklyChart({
     ? Math.round(((totalProtein - prevWeekTotal) / prevWeekTotal) * 100)
     : 0;
 
-  // Custom tooltip
+  // Custom tooltip - only show when not swiping
   const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
+    if (isSwiping || !active || !payload?.length) return null;
 
     const data = payload[0]?.payload as DayData;
     if (!data) return null;
@@ -197,7 +202,7 @@ export function WeeklyChart({
             </div>
           )}
           <div className="border-t border-border/50 pt-1.5 mt-1.5 flex justify-between gap-4">
-            <span className="font-medium">Total</span>
+            <span className="font-medium">Protein</span>
             <span className={cn("font-bold", data.goalMet ? "text-green-600" : "text-primary")}>
               {data.totalProtein}g
             </span>
@@ -205,7 +210,12 @@ export function WeeklyChart({
           {calorieTrackingEnabled && data.totalCalories > 0 && (
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Calories</span>
-              <span className="font-medium text-orange-600">{data.totalCalories} kcal</span>
+              <span className={cn(
+                "font-medium",
+                data.totalCalories > calorieGoal ? "text-red-500" : "text-orange-600"
+              )}>
+                {data.totalCalories} kcal
+              </span>
             </div>
           )}
           {mpsTrackingEnabled && data.mpsHits > 0 && (
@@ -219,9 +229,12 @@ export function WeeklyChart({
     );
   };
 
-  // Calculate max for Y axis
+  // Calculate max for Y axis - consider both protein and scaled calories
   const maxProtein = Math.max(...chartData.map(d => d.totalProtein), goal);
   const yAxisMax = Math.ceil(maxProtein * 1.15 / 10) * 10;
+
+  // Scale calories to protein axis (e.g., 2000 kcal = 150g protein scale)
+  const calorieScale = goal / calorieGoal;
 
   return (
     <div className="space-y-4">
@@ -284,7 +297,7 @@ export function WeeklyChart({
       <div className="bg-card rounded-2xl p-4 shadow-sm">
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 20, right: 10, left: 5, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 {/* Yellow/amber/orange gradient palette */}
                 <linearGradient id={MEAL_GRADIENT_IDS.breakfast} x1="0" y1="0" x2="0" y2="1">
@@ -304,6 +317,25 @@ export function WeeklyChart({
                   <stop offset="100%" stopColor="#EA580C" stopOpacity={0.85} />
                 </linearGradient>
               </defs>
+
+              {/* Goal reference lines - behind bars */}
+              <ReferenceLine
+                y={goal}
+                stroke="hsl(var(--muted-foreground))"
+                strokeWidth={1}
+                strokeDasharray="4 4"
+                strokeOpacity={0.5}
+              />
+              {calorieTrackingEnabled && (
+                <ReferenceLine
+                  y={calorieGoal * calorieScale}
+                  stroke="#F97316"
+                  strokeWidth={1}
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.4}
+                />
+              )}
+
               <XAxis
                 dataKey="day"
                 axisLine={false}
@@ -314,12 +346,13 @@ export function WeeklyChart({
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                width={35}
+                width={32}
                 domain={[0, yAxisMax]}
               />
               <Tooltip
                 content={<CustomTooltip />}
                 cursor={false}
+                trigger="click"
               />
               {/* Stacked bars with yellow/orange palette */}
               <Bar
@@ -355,17 +388,30 @@ export function WeeklyChart({
                   />
                 ))}
               </Bar>
-            </BarChart>
+
+              {/* Calorie line - scaled to protein axis */}
+              {calorieTrackingEnabled && (
+                <Line
+                  type="monotone"
+                  dataKey={(d: DayData) => d.totalCalories > 0 ? d.totalCalories * calorieScale : null}
+                  stroke="#F97316"
+                  strokeWidth={2}
+                  dot={{ fill: '#F97316', r: 3, strokeWidth: 0 }}
+                  activeDot={{ r: 5, strokeWidth: 0 }}
+                  connectNulls={false}
+                />
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
 
-        {/* MPS dots above bars - rendered separately */}
+        {/* MPS dots below chart - aligned with bars */}
         {mpsTrackingEnabled && (
-          <div className="flex justify-around px-10 -mt-[200px] mb-[156px] pointer-events-none">
+          <div className="flex justify-around mt-1 px-8">
             {chartData.map((day, index) => (
-              <div key={index} className="flex gap-1 justify-center" style={{ width: 36 }}>
-                {day.mpsHits > 0 && Array.from({ length: Math.min(day.mpsHits, 3) }).map((_, i) => (
-                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+              <div key={index} className="flex gap-0.5 justify-center" style={{ width: 36 }}>
+                {day.mpsHits > 0 && Array.from({ length: Math.min(day.mpsHits, 5) }).map((_, i) => (
+                  <div key={i} className="w-1 h-1 rounded-full bg-purple-500" />
                 ))}
               </div>
             ))}
@@ -373,27 +419,33 @@ export function WeeklyChart({
         )}
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-gradient-to-b from-yellow-200 to-yellow-300" />
-            <span>Breakfast</span>
+        <div className="flex flex-wrap items-center justify-center gap-3 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded bg-gradient-to-b from-yellow-200 to-yellow-300" />
+            <span>Brkfst</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-gradient-to-b from-yellow-300 to-amber-400" />
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded bg-gradient-to-b from-yellow-300 to-amber-400" />
             <span>Lunch</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-gradient-to-b from-amber-400 to-amber-500" />
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded bg-gradient-to-b from-amber-400 to-amber-500" />
             <span>Snack</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-gradient-to-b from-amber-500 to-orange-600" />
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded bg-gradient-to-b from-amber-500 to-orange-600" />
             <span>Dinner</span>
           </div>
+          {calorieTrackingEnabled && (
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-0.5 rounded bg-orange-500" />
+              <span>Cal</span>
+            </div>
+          )}
           {mpsTrackingEnabled && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-              <span>MPS hit</span>
+            <div className="flex items-center gap-1">
+              <div className="w-1 h-1 rounded-full bg-purple-500" />
+              <span>MPS</span>
             </div>
           )}
         </div>

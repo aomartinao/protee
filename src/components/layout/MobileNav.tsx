@@ -21,8 +21,8 @@ export function MobileNav() {
               cn(
                 'flex flex-col items-center justify-center flex-1 h-11 gap-0.5 text-[11px] transition-all duration-300 rounded-full mx-0.5',
                 isActive
-                  ? 'text-primary scale-105'
-                  : 'text-muted-foreground/70 hover:text-foreground active:scale-95'
+                  ? 'text-amber-600 scale-105'
+                  : 'text-gray-500 hover:text-gray-700 active:scale-95'
               )
             }
           >
@@ -30,14 +30,14 @@ export function MobileNav() {
               <>
                 <div className={cn(
                   'relative p-1.5 rounded-full transition-all duration-300',
-                  isActive && 'bg-primary/15'
+                  isActive && 'bg-amber-500/15'
                 )}>
                   <Icon className={cn(
                     'h-5 w-5 transition-all duration-300',
                     isActive && 'drop-shadow-sm'
                   )} />
                   {isActive && (
-                    <div className="absolute inset-0 rounded-full bg-primary/10 blur-md -z-10" />
+                    <div className="absolute inset-0 rounded-full bg-amber-500/10 blur-md -z-10" />
                   )}
                 </div>
                 <span className={cn(

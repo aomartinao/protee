@@ -9,7 +9,7 @@ import {
   addMonths,
   getDay,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Dumbbell } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Dumbbell, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { calculateMPSHits } from '@/lib/utils';
@@ -84,6 +84,7 @@ export function CalendarView({
   // Calculate monthly stats - only count days with entries
   const monthStats = useMemo(() => {
     let totalProtein = 0;
+    let totalCalories = 0;
     let goalMetDays = 0;
     let totalMpsHits = 0;
     let daysWithEntries = 0;
@@ -93,6 +94,7 @@ export function CalendarView({
       const data = dailyData.get(dateStr);
       if (data && data.protein > 0) {
         totalProtein += data.protein;
+        totalCalories += data.calories;
         totalMpsHits += data.mpsHits;
         daysWithEntries++;
         const goal = goals.get(dateStr) || defaultGoal;
@@ -100,7 +102,7 @@ export function CalendarView({
       }
     }
 
-    return { totalProtein, goalMetDays, totalMpsHits, daysWithEntries };
+    return { totalProtein, totalCalories, goalMetDays, totalMpsHits, daysWithEntries };
   }, [days, dailyData, goals, defaultGoal]);
 
   // Render MPS dots (up to 5) - centered at bottom of day cell
@@ -157,22 +159,28 @@ export function CalendarView({
           <span className="text-xl font-bold text-primary">
             {monthStats.daysWithEntries > 0 ? Math.round(monthStats.totalProtein / monthStats.daysWithEntries) : 0}g
           </span>
-          <p className="text-xs text-muted-foreground mt-0.5">Daily avg</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Protein avg</p>
         </div>
         <div className="bg-card rounded-2xl p-3 text-center shadow-sm">
           <span className="text-xl font-bold text-green-600">{monthStats.goalMetDays}</span>
           <p className="text-xs text-muted-foreground mt-0.5">Goals hit</p>
         </div>
-        {mpsTrackingEnabled && (
-          <div className="bg-card rounded-2xl p-3 text-center shadow-sm">
-            <div className="flex items-center justify-center gap-1">
-              <Dumbbell className="h-4 w-4 text-purple-500" />
-              <span className="text-xl font-bold text-purple-600">{monthStats.totalMpsHits}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">MPS hits</p>
+        <div className="bg-card rounded-2xl p-3 text-center shadow-sm">
+          <div className="flex items-center justify-center gap-1">
+            <Zap className="h-4 w-4 text-orange-500" />
+            <span className="text-xl font-bold text-orange-600">
+              {monthStats.daysWithEntries > 0 ? Math.round(monthStats.totalCalories / monthStats.daysWithEntries) : '–'}
+            </span>
           </div>
-        )}
+          <p className="text-xs text-muted-foreground mt-0.5">Calories avg</p>
+        </div>
       </div>
+      {mpsTrackingEnabled && monthStats.totalMpsHits > 0 && (
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Dumbbell className="h-4 w-4 text-purple-500" />
+          <span><span className="font-semibold text-purple-600">{monthStats.totalMpsHits}</span> MPS hits this month</span>
+        </div>
+      )}
 
       {/* Calendar */}
       <div className="bg-card rounded-2xl p-4 shadow-sm">

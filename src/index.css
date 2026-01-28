@@ -121,7 +121,7 @@
     animation: slide-up-fade 0.3s ease-out;
   }
 
-  /* Floating nav - iOS liquid glass style */
+  /* Floating nav - iOS liquid glass style (always light mode) */
   .floating-nav {
     background: linear-gradient(
       135deg,
@@ -138,23 +138,5 @@
       0 2px 8px rgba(0, 0, 0, 0.04),
       inset 0 1px 0 rgba(255, 255, 255, 0.8),
       inset 0 -1px 0 rgba(0, 0, 0, 0.03);
-  }
-
-  /* Dark mode liquid glass */
-  @media (prefers-color-scheme: dark) {
-    .floating-nav {
-      background: linear-gradient(
-        135deg,
-        rgba(45, 45, 45, 0.75) 0%,
-        rgba(35, 35, 35, 0.65) 50%,
-        rgba(45, 45, 45, 0.75) 100%
-      );
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        0 2px 8px rgba(0, 0, 0, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-    }
   }
 }
