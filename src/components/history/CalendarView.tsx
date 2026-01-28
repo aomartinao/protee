@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   format,
   startOfMonth,
@@ -7,7 +7,6 @@ import {
   isSameMonth,
   isSameDay,
   addMonths,
-  subMonths,
   getDay,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight, Dumbbell } from 'lucide-react';
@@ -22,6 +21,9 @@ interface CalendarViewProps {
   defaultGoal: number;
   mpsTrackingEnabled?: boolean;
   weekStartsOn?: 'sunday' | 'monday';
+  monthOffset: number;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
 }
 
 export function CalendarView({
@@ -30,8 +32,14 @@ export function CalendarView({
   defaultGoal,
   mpsTrackingEnabled = true,
   weekStartsOn = 'monday',
+  monthOffset,
+  onPrevMonth,
+  onNextMonth,
 }: CalendarViewProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // Calculate current month based on offset
+  const currentMonth = useMemo(() => {
+    return addMonths(new Date(), monthOffset);
+  }, [monthOffset]);
 
   // Convert setting to number: 0 for Sunday, 1 for Monday
   const weekStartDay = weekStartsOn === 'sunday' ? 0 : 1;
@@ -95,21 +103,29 @@ export function CalendarView({
     return { totalProtein, goalMetDays, totalMpsHits, daysWithEntries };
   }, [days, dailyData, goals, defaultGoal]);
 
-  // Render MPS dots (up to 3)
+  // Render MPS dots (up to 5) - centered at bottom of day cell
   const renderMpsDots = (count: number) => {
-    const dotsToShow = Math.min(count, 3);
+    const dotsToShow = Math.min(count, 5);
     return (
-      <div className="absolute top-0.5 right-0.5 flex gap-0.5">
+      <div className="absolute bottom-0.5 left-0 right-0 flex justify-center gap-px">
         {Array.from({ length: dotsToShow }).map((_, i) => (
           <div
             key={i}
-            className="w-1.5 h-1.5 rounded-full bg-purple-500"
+            className="w-1 h-1 rounded-full bg-purple-500"
             title={`${count} MPS hit${count > 1 ? 's' : ''}`}
           />
         ))}
       </div>
     );
   };
+
+  // Month label
+  const monthLabel = useMemo(() => {
+    if (monthOffset === 0) {
+      return 'This Month';
+    }
+    return format(currentMonth, 'MMMM yyyy');
+  }, [currentMonth, monthOffset]);
 
   return (
     <div className="space-y-4">
@@ -119,16 +135,17 @@ export function CalendarView({
           variant="ghost"
           size="icon"
           className="h-9 w-9 rounded-full"
-          onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          onClick={onPrevMonth}
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <h3 className="font-semibold text-lg">{format(currentMonth, 'MMMM yyyy')}</h3>
+        <h3 className="font-semibold text-lg">{monthLabel}</h3>
         <Button
           variant="ghost"
           size="icon"
           className="h-9 w-9 rounded-full"
-          onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+          onClick={onNextMonth}
+          disabled={monthOffset >= 0}
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
@@ -234,10 +251,10 @@ export function CalendarView({
         </div>
         {mpsTrackingEnabled && (
           <div className="flex items-center gap-1.5">
-            <div className="flex gap-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-              <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-              <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+            <div className="flex gap-px">
+              <div className="w-1 h-1 rounded-full bg-purple-500" />
+              <div className="w-1 h-1 rounded-full bg-purple-500" />
+              <div className="w-1 h-1 rounded-full bg-purple-500" />
             </div>
             <span>MPS hits</span>
           </div>

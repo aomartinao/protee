@@ -1,16 +1,16 @@
 import { useMemo } from 'react';
-import { format, subDays, startOfDay } from 'date-fns';
+import { format, subDays, addDays, startOfDay } from 'date-fns';
 import {
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   Cell,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Dumbbell, Flame } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Flame, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { calculateMPSHits } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import type { FoodEntry } from '@/types';
@@ -21,6 +21,9 @@ interface WeeklyChartProps {
   calorieGoal?: number;
   calorieTrackingEnabled?: boolean;
   mpsTrackingEnabled?: boolean;
+  weekOffset: number;
+  onPrevWeek: () => void;
+  onNextWeek: () => void;
 }
 
 // Meal time categories based on consumedAt hour
@@ -34,7 +37,7 @@ function getMealType(entry: FoodEntry): 'breakfast' | 'lunch' | 'dinner' | 'snac
   return 'dinner'; // 18-5
 }
 
-// Elegant gradient color IDs
+// Shades of yellow/amber/orange palette
 const MEAL_GRADIENT_IDS = {
   breakfast: 'breakfastGradient',
   lunch: 'lunchGradient',
@@ -61,14 +64,20 @@ export function WeeklyChart({
   goal,
   calorieTrackingEnabled = false,
   mpsTrackingEnabled = true,
+  weekOffset,
+  onPrevWeek,
+  onNextWeek,
 }: WeeklyChartProps) {
   const chartData = useMemo(() => {
     const today = startOfDay(new Date());
     const todayStr = format(today, 'yyyy-MM-dd');
     const data: DayData[] = [];
 
+    // Calculate week start based on offset
+    const baseDate = addDays(today, weekOffset * 7);
+
     for (let i = 6; i >= 0; i--) {
-      const date = subDays(today, i);
+      const date = subDays(baseDate, i);
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayEntries = entries.filter((e) => e.date === dateStr);
 
@@ -100,7 +109,20 @@ export function WeeklyChart({
     }
 
     return data;
-  }, [entries, goal]);
+  }, [entries, goal, weekOffset]);
+
+  // Week date range for display
+  const weekRange = useMemo(() => {
+    const today = startOfDay(new Date());
+    const baseDate = addDays(today, weekOffset * 7);
+    const weekStart = subDays(baseDate, 6);
+    const weekEnd = baseDate;
+
+    if (weekOffset === 0) {
+      return 'This Week';
+    }
+    return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`;
+  }, [weekOffset]);
 
   // Calculate stats - only count days with entries
   const daysWithEntries = chartData.filter(d => d.totalProtein > 0);
@@ -109,27 +131,25 @@ export function WeeklyChart({
     ? Math.round(totalProtein / daysWithEntries.length)
     : 0;
   const goalMetDays = chartData.filter(d => d.goalMet).length;
-  const totalMpsHits = chartData.reduce((sum, d) => sum + d.mpsHits, 0);
   const totalCalories = chartData.reduce((sum, d) => sum + d.totalCalories, 0);
   const avgCalories = daysWithEntries.length > 0
     ? Math.round(totalCalories / daysWithEntries.length)
     : 0;
 
-  // Calculate week-over-week trend (compare to previous week if data available)
-  const thisWeekTotal = totalProtein;
+  // Calculate week-over-week trend
+  const prevWeekStart = subDays(addDays(new Date(), weekOffset * 7), 13);
+  const prevWeekEnd = subDays(addDays(new Date(), weekOffset * 7), 7);
   const prevWeekEntries = entries.filter(e => {
     const entryDate = new Date(e.date);
-    const weekAgo = subDays(new Date(), 7);
-    const twoWeeksAgo = subDays(new Date(), 14);
-    return entryDate >= twoWeeksAgo && entryDate < weekAgo;
+    return entryDate >= prevWeekStart && entryDate < prevWeekEnd;
   });
   const prevWeekTotal = prevWeekEntries.reduce((sum, e) => sum + e.protein, 0);
 
   const trendPercent = prevWeekTotal > 0
-    ? Math.round(((thisWeekTotal - prevWeekTotal) / prevWeekTotal) * 100)
+    ? Math.round(((totalProtein - prevWeekTotal) / prevWeekTotal) * 100)
     : 0;
 
-  // Custom tooltip with glass-morphism
+  // Custom tooltip
   const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
 
@@ -143,7 +163,7 @@ export function WeeklyChart({
           {data.breakfast > 0 && (
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="w-2 h-2 rounded-full bg-amber-300" />
                 Breakfast
               </span>
               <span className="font-medium">{data.breakfast}g</span>
@@ -152,7 +172,7 @@ export function WeeklyChart({
           {data.lunch > 0 && (
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
                 Lunch
               </span>
               <span className="font-medium">{data.lunch}g</span>
@@ -161,7 +181,7 @@ export function WeeklyChart({
           {data.snack > 0 && (
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
                 Snack
               </span>
               <span className="font-medium">{data.snack}g</span>
@@ -170,7 +190,7 @@ export function WeeklyChart({
           {data.dinner > 0 && (
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="w-2 h-2 rounded-full bg-orange-500" />
                 Dinner
               </span>
               <span className="font-medium">{data.dinner}g</span>
@@ -185,14 +205,12 @@ export function WeeklyChart({
           {calorieTrackingEnabled && data.totalCalories > 0 && (
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Calories</span>
-              <span className="font-medium text-amber-600">{data.totalCalories} kcal</span>
+              <span className="font-medium text-orange-600">{data.totalCalories} kcal</span>
             </div>
           )}
           {mpsTrackingEnabled && data.mpsHits > 0 && (
             <div className="flex justify-between gap-4 items-center">
-              <span className="text-muted-foreground flex items-center gap-1">
-                <Dumbbell className="h-3 w-3" /> MPS hits
-              </span>
+              <span className="text-muted-foreground">MPS hits</span>
               <span className="font-medium text-purple-600">{data.mpsHits}</span>
             </div>
           )}
@@ -201,12 +219,34 @@ export function WeeklyChart({
     );
   };
 
-  // Calculate max for Y axis to ensure goal line is always visible
+  // Calculate max for Y axis
   const maxProtein = Math.max(...chartData.map(d => d.totalProtein), goal);
-  const yAxisMax = Math.ceil(maxProtein * 1.15 / 10) * 10; // Round up to nearest 10 with 15% padding
+  const yAxisMax = Math.ceil(maxProtein * 1.15 / 10) * 10;
 
   return (
     <div className="space-y-4">
+      {/* Week Navigation */}
+      <div className="flex items-center justify-between bg-card rounded-2xl p-3 shadow-sm">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          onClick={onPrevWeek}
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+        <h3 className="font-semibold text-lg">{weekRange}</h3>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          onClick={onNextWeek}
+          disabled={weekOffset >= 0}
+        >
+          <ChevronRight className="h-5 w-5" />
+        </Button>
+      </div>
+
       {/* Stats Summary */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-card rounded-2xl p-4 text-center shadow-sm">
@@ -221,7 +261,7 @@ export function WeeklyChart({
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Daily avg</p>
+          <p className="text-xs text-muted-foreground mt-1">Protein avg</p>
         </div>
         <div className="bg-card rounded-2xl p-4 text-center shadow-sm">
           <div className="flex items-center justify-center gap-1">
@@ -231,52 +271,37 @@ export function WeeklyChart({
           </div>
           <p className="text-xs text-muted-foreground mt-1">Goals hit</p>
         </div>
-        {mpsTrackingEnabled ? (
-          <div className="bg-card rounded-2xl p-4 text-center shadow-sm">
-            <div className="flex items-center justify-center gap-1">
-              <Dumbbell className="h-5 w-5 text-purple-500" />
-              <span className="text-2xl font-bold text-purple-600">{totalMpsHits}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">MPS hits</p>
+        <div className="bg-card rounded-2xl p-4 text-center shadow-sm">
+          <div className="flex items-center justify-center gap-1">
+            <Zap className="h-5 w-5 text-orange-500" />
+            <span className="text-2xl font-bold text-orange-600">{avgCalories || '–'}</span>
           </div>
-        ) : (
-          <div className="bg-card rounded-2xl p-4 text-center shadow-sm">
-            <span className="text-2xl font-bold text-foreground">{totalProtein}g</span>
-            <p className="text-xs text-muted-foreground mt-1">Total</p>
-          </div>
-        )}
-      </div>
-
-      {/* Calories summary if tracking */}
-      {calorieTrackingEnabled && totalCalories > 0 && (
-        <div className="bg-card rounded-2xl p-3 shadow-sm flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Avg calories</span>
-          <span className="font-semibold text-amber-600">{avgCalories} kcal/day</span>
+          <p className="text-xs text-muted-foreground mt-1">Calories avg</p>
         </div>
-      )}
+      </div>
 
       {/* Chart */}
       <div className="bg-card rounded-2xl p-4 shadow-sm">
-        <div className="h-52">
+        <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 20, right: 30, left: -15, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 20, right: 10, left: 5, bottom: 0 }}>
               <defs>
-                {/* Gradient definitions for elegant bars */}
+                {/* Yellow/amber/orange gradient palette */}
                 <linearGradient id={MEAL_GRADIENT_IDS.breakfast} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#FDE68A" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#FCD34D" stopOpacity={0.85} />
+                </linearGradient>
+                <linearGradient id={MEAL_GRADIENT_IDS.lunch} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#FCD34D" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#FBBF24" stopOpacity={0.85} />
+                </linearGradient>
+                <linearGradient id={MEAL_GRADIENT_IDS.snack} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#FBBF24" stopOpacity={0.95} />
                   <stop offset="100%" stopColor="#F59E0B" stopOpacity={0.85} />
                 </linearGradient>
-                <linearGradient id={MEAL_GRADIENT_IDS.lunch} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4ADE80" stopOpacity={0.95} />
-                  <stop offset="100%" stopColor="#22C55E" stopOpacity={0.85} />
-                </linearGradient>
-                <linearGradient id={MEAL_GRADIENT_IDS.snack} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#C084FC" stopOpacity={0.95} />
-                  <stop offset="100%" stopColor="#A855F7" stopOpacity={0.85} />
-                </linearGradient>
                 <linearGradient id={MEAL_GRADIENT_IDS.dinner} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#60A5FA" stopOpacity={0.95} />
-                  <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.85} />
+                  <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#EA580C" stopOpacity={0.85} />
                 </linearGradient>
               </defs>
               <XAxis
@@ -289,22 +314,14 @@ export function WeeklyChart({
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                width={40}
+                width={35}
                 domain={[0, yAxisMax]}
               />
               <Tooltip
                 content={<CustomTooltip />}
                 cursor={false}
               />
-              {/* Goal reference line */}
-              <ReferenceLine
-                y={goal}
-                stroke="#EF4444"
-                strokeDasharray="6 4"
-                strokeWidth={2}
-                strokeOpacity={0.8}
-              />
-              {/* Stacked bars by meal type with gradients */}
+              {/* Stacked bars with yellow/orange palette */}
               <Bar
                 dataKey="breakfast"
                 stackId="protein"
@@ -342,46 +359,45 @@ export function WeeklyChart({
           </ResponsiveContainer>
         </div>
 
+        {/* MPS dots above bars - rendered separately */}
+        {mpsTrackingEnabled && (
+          <div className="flex justify-around px-10 -mt-[200px] mb-[156px] pointer-events-none">
+            {chartData.map((day, index) => (
+              <div key={index} className="flex gap-1 justify-center" style={{ width: 36 }}>
+                {day.mpsHits > 0 && Array.from({ length: Math.min(day.mpsHits, 3) }).map((_, i) => (
+                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Legend */}
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-gradient-to-b from-amber-400 to-amber-500" />
+            <div className="w-3 h-3 rounded bg-gradient-to-b from-yellow-200 to-yellow-300" />
             <span>Breakfast</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-gradient-to-b from-green-400 to-green-500" />
+            <div className="w-3 h-3 rounded bg-gradient-to-b from-yellow-300 to-amber-400" />
             <span>Lunch</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-gradient-to-b from-purple-400 to-purple-500" />
+            <div className="w-3 h-3 rounded bg-gradient-to-b from-amber-400 to-amber-500" />
             <span>Snack</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-gradient-to-b from-blue-400 to-blue-500" />
+            <div className="w-3 h-3 rounded bg-gradient-to-b from-amber-500 to-orange-600" />
             <span>Dinner</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 border-t-2 border-dashed border-red-500" />
-            <span>Goal ({goal}g)</span>
-          </div>
+          {mpsTrackingEnabled && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+              <span>MPS hit</span>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Weekly insight */}
-      {goalMetDays >= 5 && (
-        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-2xl p-4 text-center">
-          <p className="text-green-700 dark:text-green-300 font-medium">
-            Great week! You hit your goal {goalMetDays} out of 7 days.
-          </p>
-        </div>
-      )}
-      {goalMetDays < 3 && totalProtein > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 text-center">
-          <p className="text-amber-700 dark:text-amber-300 font-medium">
-            Room to grow - try adding a protein-rich snack to your routine.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

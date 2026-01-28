@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { HistoryList } from '@/components/history/HistoryList';
 import { WeeklyChart } from '@/components/history/WeeklyChart';
 import { CalendarView } from '@/components/history/CalendarView';
@@ -12,10 +12,17 @@ type TabValue = 'list' | 'week' | 'month';
 
 export function History() {
   const [activeTab, setActiveTab] = useState<TabValue>('week');
-  const entries = useRecentEntries(90);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
+  const entries = useRecentEntries(180); // Extended to 6 months for navigation
   const deleteEntry = useDeleteEntry();
   const dailyGoals = useDailyGoals();
   const { settings } = useSettings();
+
+  // Swipe handling
+  const swipeStartX = useRef(0);
+  const swipeStartY = useRef(0);
+  const [isSwiping, setIsSwiping] = useState(false);
 
   const handleEdit = useCallback(async (entry: FoodEntry) => {
     if (!entry.id) return;
@@ -31,6 +38,52 @@ export function History() {
 
     triggerSync();
   }, []);
+
+  // Navigation handlers
+  const handlePrevWeek = useCallback(() => setWeekOffset(prev => prev - 1), []);
+  const handleNextWeek = useCallback(() => setWeekOffset(prev => Math.min(prev + 1, 0)), []);
+  const handlePrevMonth = useCallback(() => setMonthOffset(prev => prev - 1), []);
+  const handleNextMonth = useCallback(() => setMonthOffset(prev => Math.min(prev + 1, 0)), []);
+
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    swipeStartX.current = e.touches[0].clientX;
+    swipeStartY.current = e.touches[0].clientY;
+    setIsSwiping(false);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const deltaX = e.touches[0].clientX - swipeStartX.current;
+    const deltaY = e.touches[0].clientY - swipeStartY.current;
+
+    // Only consider horizontal swipes
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+      setIsSwiping(true);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isSwiping) return;
+
+    const deltaX = e.changedTouches[0].clientX - swipeStartX.current;
+    const SWIPE_THRESHOLD = 50;
+
+    if (activeTab === 'week') {
+      if (deltaX > SWIPE_THRESHOLD) {
+        handlePrevWeek();
+      } else if (deltaX < -SWIPE_THRESHOLD) {
+        handleNextWeek();
+      }
+    } else if (activeTab === 'month') {
+      if (deltaX > SWIPE_THRESHOLD) {
+        handlePrevMonth();
+      } else if (deltaX < -SWIPE_THRESHOLD) {
+        handleNextMonth();
+      }
+    }
+
+    setIsSwiping(false);
+  };
 
   const tabs: { value: TabValue; label: string }[] = [
     { value: 'list', label: 'List' },
@@ -60,8 +113,13 @@ export function History() {
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div className="px-4">
+      {/* Tab Content with swipe support */}
+      <div
+        className="px-4"
+        onTouchStart={activeTab !== 'list' ? handleTouchStart : undefined}
+        onTouchMove={activeTab !== 'list' ? handleTouchMove : undefined}
+        onTouchEnd={activeTab !== 'list' ? handleTouchEnd : undefined}
+      >
         {activeTab === 'list' && (
           <HistoryList
             entries={entries}
@@ -80,6 +138,9 @@ export function History() {
             calorieGoal={settings.calorieGoal}
             calorieTrackingEnabled={settings.calorieTrackingEnabled}
             mpsTrackingEnabled={settings.mpsTrackingEnabled}
+            weekOffset={weekOffset}
+            onPrevWeek={handlePrevWeek}
+            onNextWeek={handleNextWeek}
           />
         )}
 
@@ -90,6 +151,9 @@ export function History() {
             defaultGoal={settings.defaultGoal}
             mpsTrackingEnabled={settings.mpsTrackingEnabled}
             weekStartsOn={settings.weekStartsOn}
+            monthOffset={monthOffset}
+            onPrevMonth={handlePrevMonth}
+            onNextMonth={handleNextMonth}
           />
         )}
       </div>
