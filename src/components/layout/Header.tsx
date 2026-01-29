@@ -27,7 +27,7 @@ export function Header() {
   const location = useLocation();
   const { user, signOut } = useAuthStore();
   const { clearMessages, clearAdvisorMessages, dashboardShowTodayButton, dashboardOnToday } = useStore();
-  const { updateAvailable, updateApp } = useUpdateAvailable();
+  useUpdateAvailable(); // Hook for update detection (used in popover)
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [advisorClearDialogOpen, setAdvisorClearDialogOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
@@ -63,21 +63,8 @@ export function Header() {
   const getTitle = () => {
     switch (location.pathname) {
       case '/':
-        return (
-          <span className="flex items-center gap-2">
-            Protee
-            <span className="text-xs font-normal text-muted-foreground">v{version}</span>
-            {updateAvailable && (
-              <button
-                onClick={updateApp}
-                className="text-xs font-normal text-primary hover:underline flex items-center gap-1"
-              >
-                <RefreshCw className="h-3 w-3" />
-                update
-              </button>
-            )}
-          </span>
-        );
+        // Dashboard title with icon - rendered separately with Popover
+        return null;
       case '/coach':
       case '/chat':
       case '/advisor':
@@ -150,65 +137,9 @@ export function Header() {
       );
     }
 
-    // On Dashboard (when on Today), show gold target icon with info popover
+    // On Dashboard (when on Today), no right-side action needed (popover is in title)
     if (isDashboardPage) {
-      return (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted">
-              <Target className="h-5 w-5 text-amber-500" />
-              <span className="sr-only">About Protee</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72" align="end">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Target className="h-6 w-6 text-amber-500" />
-                <div>
-                  <h4 className="font-semibold">Protee</h4>
-                  <p className="text-xs text-muted-foreground">v{version}</p>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                AI-powered protein tracking to hit your daily goals
-              </p>
-              <div className="pt-2 border-t border-border">
-                <p className="text-xs text-muted-foreground">
-                  Feedback welcome at{' '}
-                  <a
-                    href="mailto:martin.holecko@gmail.com"
-                    className="text-primary hover:underline"
-                  >
-                    martin.holecko@gmail.com
-                  </a>
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Link to="/settings" className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full gap-2">
-                    <Settings className="h-4 w-4" />
-                    Settings
-                  </Button>
-                </Link>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 gap-2"
-                  onClick={handleCheckForUpdates}
-                  disabled={isCheckingUpdate}
-                >
-                  {isCheckingUpdate ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  {updateStatus === 'current' ? 'Up to date' : 'Update'}
-                </Button>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-      );
+      return null;
     }
 
     return (
@@ -221,11 +152,71 @@ export function Header() {
     );
   };
 
+  const renderDashboardTitle = () => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <Target className="h-6 w-6 text-amber-500" />
+          <span className="text-xl font-semibold text-foreground">Protee</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72" align="start">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Target className="h-6 w-6 text-amber-500" />
+            <div>
+              <h4 className="font-semibold">Protee</h4>
+              <p className="text-xs text-muted-foreground">v{version}</p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            AI-powered protein tracking to hit your daily goals
+          </p>
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground">
+              Feedback welcome at{' '}
+              <a
+                href="mailto:martin.holecko@gmail.com"
+                className="text-primary hover:underline"
+              >
+                martin.holecko@gmail.com
+              </a>
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Link to="/settings" className="flex-1">
+              <Button variant="outline" size="sm" className="w-full gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-2"
+              onClick={handleCheckForUpdates}
+              disabled={isCheckingUpdate}
+            >
+              {isCheckingUpdate ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {updateStatus === 'current' ? 'Up to date' : 'Update'}
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-background safe-area-inset-top">
         <div className="flex h-14 items-center justify-between px-4">
-          <h1 className="text-xl font-semibold text-foreground">{getTitle()}</h1>
+          {isDashboardPage ? renderDashboardTitle() : (
+            <h1 className="text-xl font-semibold text-foreground">{getTitle()}</h1>
+          )}
           {renderHeaderAction()}
         </div>
       </header>

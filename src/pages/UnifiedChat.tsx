@@ -630,24 +630,35 @@ export function UnifiedChat() {
         })}
 
         {/* Pending food card */}
-        {pendingFood && (
-          <div className="mt-3 mb-2">
-            <FoodCard
-              entry={{
-                foodName: pendingFood.analysis.foodName,
-                protein: pendingFood.analysis.protein,
-                calories: pendingFood.analysis.calories,
-                confidence: pendingFood.analysis.confidence,
-                imageData: pendingFood.imageData,
-              } as FoodEntry}
-              onConfirm={handleConfirmFood}
-              onEdit={handleEditFood}
-              onCancel={handleCancelFood}
-              showCalories={settings.calorieTrackingEnabled}
-              isConfirmed={false}
-            />
-          </div>
-        )}
+        {pendingFood && (() => {
+          // Convert parsed time to Date if available
+          let pendingConsumedAt: Date | undefined;
+          if (pendingFood.analysis.consumedAt) {
+            const { parsedDate, parsedTime } = pendingFood.analysis.consumedAt;
+            const [year, month, day] = parsedDate.split('-').map(Number);
+            const [hours, minutes] = parsedTime.split(':').map(Number);
+            pendingConsumedAt = new Date(year, month - 1, day, hours, minutes);
+          }
+          return (
+            <div className="mt-3 mb-2">
+              <FoodCard
+                entry={{
+                  foodName: pendingFood.analysis.foodName,
+                  protein: pendingFood.analysis.protein,
+                  calories: pendingFood.analysis.calories,
+                  confidence: pendingFood.analysis.confidence,
+                  imageData: pendingFood.imageData,
+                  consumedAt: pendingConsumedAt,
+                } as FoodEntry}
+                onConfirm={handleConfirmFood}
+                onEdit={handleEditFood}
+                onCancel={handleCancelFood}
+                showCalories={settings.calorieTrackingEnabled}
+                isConfirmed={false}
+              />
+            </div>
+          );
+        })()}
 
         {/* Quick replies */}
         {showQuickReplies.length > 0 && !isProcessing && !pendingFood && (
