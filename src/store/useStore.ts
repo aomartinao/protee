@@ -55,6 +55,11 @@ interface AppState {
   // Floating action button state
   showFloatingAddButton: boolean;
   setShowFloatingAddButton: (show: boolean) => void;
+
+  // Pending image from home screen (for quick capture)
+  pendingImageFromHome: string | null;
+  pendingImageSource: 'camera' | 'gallery' | null;
+  setPendingImageFromHome: (imageData: string | null, source: 'camera' | 'gallery' | null) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -226,6 +231,14 @@ export const useStore = create<AppState>()(
       // Floating action button
       showFloatingAddButton: false,
       setShowFloatingAddButton: (show) => set({ showFloatingAddButton: show }),
+
+      // Pending image from home screen
+      pendingImageFromHome: null,
+      pendingImageSource: null,
+      setPendingImageFromHome: (imageData, source) => set({
+        pendingImageFromHome: imageData,
+        pendingImageSource: source
+      }),
     }),
     {
       name: 'protee-storage',

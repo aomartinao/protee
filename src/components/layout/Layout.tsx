@@ -1,15 +1,13 @@
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
-import { Button } from '@/components/ui/button';
+import { FloatingAddButton } from './FloatingAddButton';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { useCallback } from 'react';
 
 export function Layout() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { syncData, isSyncing, user } = useAuthStore();
   const { showFloatingAddButton } = useStore();
@@ -41,15 +39,7 @@ export function Layout() {
       <MobileNav />
 
       {/* Floating Add Button - rendered at root level to stay fixed */}
-      {showFloatingAddButton && (
-        <Button
-          size="icon"
-          className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-lg z-50"
-          onClick={() => navigate('/coach')}
-        >
-          <Plus className="h-7 w-7" />
-        </Button>
-      )}
+      {showFloatingAddButton && <FloatingAddButton />}
     </div>
   );
 }

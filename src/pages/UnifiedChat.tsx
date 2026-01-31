@@ -77,6 +77,8 @@ export function UnifiedChat() {
     addMessage,
     updateMessage,
     loadMessages,
+    pendingImageFromHome,
+    setPendingImageFromHome,
   } = useStore();
 
   // Filter messages to only show last N days
@@ -184,11 +186,14 @@ export function UnifiedChat() {
     if (!insightsReady || initialized) return;
     setInitialized(true);
 
-    // Only show greeting if no recent messages (within last hour)
+    // Only show greeting if no recent messages (within last hour) AND no pending image
     const recentMessage = messages[messages.length - 1];
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     if (recentMessage && new Date(recentMessage.timestamp).getTime() > oneHourAgo) {
       return; // Skip greeting, user has recent activity
+    }
+    if (pendingImageFromHome) {
+      return; // Skip greeting, user is sending an image
     }
 
     const context = getContext();
@@ -204,7 +209,7 @@ export function UnifiedChat() {
     if (greeting.quickReplies) {
       setShowQuickReplies(greeting.quickReplies);
     }
-  }, [insightsReady, initialized, getContext, addMessage, messages]);
+  }, [insightsReady, initialized, getContext, addMessage, messages, pendingImageFromHome]);
 
   // Track if initial scroll has happened
   const hasScrolledRef = useRef(false);
@@ -258,6 +263,18 @@ export function UnifiedChat() {
 
     await processInput('', imageData);
   };
+
+  // Handle pending image from home screen (quick capture via long-press)
+  useEffect(() => {
+    if (!insightsReady || !initialized || !pendingImageFromHome) return;
+
+    // Consume the pending image
+    const imageData = pendingImageFromHome;
+    setPendingImageFromHome(null, null);
+
+    // Send the image
+    handleSendImage(imageData);
+  }, [insightsReady, initialized, pendingImageFromHome, setPendingImageFromHome, handleSendImage]);
 
   // Process input through unified AI
   const processInput = async (text: string, imageData: string | null) => {
