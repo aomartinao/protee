@@ -67,6 +67,64 @@ export interface UnifiedResponse {
   correctsPreviousEntry?: boolean;
 }
 
+function buildProgressNarrative(insights: ProgressInsights, nickname?: string): string {
+  const parts: string[] = [];
+  const name = nickname || 'User';
+
+  // Streak info
+  if (insights.currentStreak > 0) {
+    if (insights.currentStreak >= 7) {
+      parts.push(`🔥 ${name} is on a ${insights.currentStreak}-day streak! This is serious commitment.`);
+    } else if (insights.currentStreak >= 3) {
+      parts.push(`${name} has a ${insights.currentStreak}-day streak going - building momentum!`);
+    } else {
+      parts.push(`${name} has hit their goal ${insights.currentStreak} day(s) in a row.`);
+    }
+  }
+
+  // Best streak comparison
+  if (insights.longestStreak > insights.currentStreak && insights.longestStreak > 3) {
+    parts.push(`Their best streak was ${insights.longestStreak} days - something to aim for!`);
+  }
+
+  // Consistency
+  if (insights.daysTracked >= 7) {
+    if (insights.consistencyPercent >= 80) {
+      parts.push(`Consistency is excellent - hitting goal ${insights.consistencyPercent.toFixed(0)}% of tracked days.`);
+    } else if (insights.consistencyPercent >= 50) {
+      parts.push(`Hitting goal about ${insights.consistencyPercent.toFixed(0)}% of the time - room to improve but solid foundation.`);
+    } else {
+      parts.push(`Goal hit rate is ${insights.consistencyPercent.toFixed(0)}% - there's opportunity to build better habits here.`);
+    }
+  }
+
+  // Trend
+  if (insights.trend === 'improving') {
+    parts.push(`Trend: IMPROVING - last 7 days average (${insights.last7DaysAvg.toFixed(0)}g) is better than before!`);
+  } else if (insights.trend === 'declining') {
+    parts.push(`Trend: needs attention - recent average (${insights.last7DaysAvg.toFixed(0)}g) has dropped. Worth a gentle check-in.`);
+  } else if (insights.trend === 'consistent') {
+    parts.push(`Trend: Steady and consistent at ~${insights.last7DaysAvg.toFixed(0)}g/day average.`);
+  }
+
+  // Meal patterns
+  if (insights.strongestMealTime && insights.daysTracked >= 5) {
+    parts.push(`Strongest meal time: ${insights.strongestMealTime} - this is where ${name} tends to get the most protein.`);
+    if (insights.weakestMealTime && insights.weakestMealTime !== insights.strongestMealTime) {
+      parts.push(`Opportunity: ${insights.weakestMealTime} tends to be lighter on protein.`);
+    }
+  }
+
+  // Today's pace
+  if (insights.isBehindSchedule) {
+    parts.push(`TODAY: Behind schedule - only ${insights.percentComplete.toFixed(0)}% complete. May need a nudge.`);
+  } else if (insights.isOnTrackToday) {
+    parts.push(`TODAY: On track! ${insights.percentComplete.toFixed(0)}% complete for this time of day.`);
+  }
+
+  return parts.join('\n') || 'New user - still building data for patterns.';
+}
+
 function buildUnifiedSystemPrompt(context: UnifiedContext): string {
   const { goal, consumed, remaining, currentTime, preferences, nickname, insights, recentMeals, lastLoggedEntry } = context;
 
@@ -91,6 +149,9 @@ function buildUnifiedSystemPrompt(context: UnifiedContext): string {
     ? `\nLAST LOGGED (${lastLoggedEntry.loggedMinutesAgo}min ago): "${lastLoggedEntry.foodName}" - ${lastLoggedEntry.protein}g protein${lastLoggedEntry.calories ? `, ${lastLoggedEntry.calories} kcal` : ''}`
     : '';
 
+  // Build progress narrative for richer context
+  const progressNarrative = buildProgressNarrative(insights, nickname);
+
   return `You are a concise nutrition coach helping ${name} hit their protein goals. Channel Dr. Peter Attia's longevity-focused approach but BE BRIEF.
 
 YOUR ROLE: Help log meals AND provide quick coaching - all in one chat.
@@ -102,6 +163,9 @@ CURRENT STATUS:
 - Streak: ${insights.currentStreak} days
 ${insights.hoursSinceLastMeal !== null ? `- Last meal: ${insights.hoursSinceLastMeal}h ago` : ''}
 ${recentMeals?.length ? `- Recent: ${recentMeals.slice(0, 3).join(', ')}` : ''}${lastEntryInfo}
+
+PROGRESS CONTEXT:
+${progressNarrative}
 
 USER PROFILE: ${restrictionsList || 'No restrictions'}
 

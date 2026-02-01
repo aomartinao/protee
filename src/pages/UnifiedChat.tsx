@@ -21,7 +21,7 @@ import { useProgressInsights } from '@/hooks/useProgressInsights';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
-import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry } from '@/db';
+import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits } from '@/lib/utils';
 import { refineAnalysis } from '@/services/ai/client';
@@ -45,7 +45,7 @@ const CHAT_HISTORY_DAYS = 7;
 
 export function UnifiedChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { settings, settingsLoaded } = useSettings();
+  const { settings, settingsLoaded, updateSettings } = useSettings();
   const { user } = useAuthStore();
   const insights = useProgressInsights();
   const nickname = getNickname(user?.email);
@@ -469,15 +469,25 @@ export function UnifiedChat() {
     setShowQuickReplies([]);
   };
 
-  // Edit food entry
-  const handleEditFood = () => {
-    // For now, just allow re-stating - could open edit dialog
-    setPendingFood(null);
-    addMessage({
-      syncId: crypto.randomUUID(),
-      type: 'assistant',
-      content: 'No problem - tell me what to change.',
-      timestamp: new Date(),
+  // Save inline edit to pending food
+  const handleSavePendingEdit = (updates: Partial<FoodEntry>) => {
+    if (!pendingFood) return;
+
+    // Update the pending food analysis with the edited values
+    setPendingFood({
+      ...pendingFood,
+      analysis: {
+        ...pendingFood.analysis,
+        foodName: updates.foodName || pendingFood.analysis.foodName,
+        protein: updates.protein ?? pendingFood.analysis.protein,
+        calories: updates.calories ?? pendingFood.analysis.calories,
+        consumedAt: updates.consumedAt
+          ? {
+              parsedDate: format(updates.consumedAt, 'yyyy-MM-dd'),
+              parsedTime: format(updates.consumedAt, 'HH:mm'),
+            }
+          : pendingFood.analysis.consumedAt,
+      },
     });
   };
 
@@ -488,9 +498,42 @@ export function UnifiedChat() {
   };
 
   // Learn user preference from confirmed meals
-  const learnPreference = async (_foodName: string, _type: 'favorite' | 'dislike') => {
-    // TODO: Implement preference learning
-    // For now, just a placeholder - will store learned preferences in settings
+  const learnPreference = async (foodName: string, _type: 'favorite' | 'dislike') => {
+    // Normalize food name for comparison
+    const normalizedName = foodName.toLowerCase().trim();
+
+    // Get current preferences
+    const prefs = settings.dietaryPreferences || {
+      allergies: [],
+      intolerances: [],
+      dietaryRestrictions: [],
+      dislikes: [],
+      favorites: [],
+    };
+
+    // Skip if already in favorites
+    if (prefs.favorites.some(f => f.toLowerCase() === normalizedName)) {
+      return;
+    }
+
+    // Count occurrences in recent entries (last 30 days)
+    const startDate = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+    const endDate = format(new Date(), 'yyyy-MM-dd');
+    const recentFoodEntries = await getEntriesForDateRange(startDate, endDate);
+
+    const count = recentFoodEntries.filter(e =>
+      e.foodName.toLowerCase().includes(normalizedName) ||
+      normalizedName.includes(e.foodName.toLowerCase())
+    ).length;
+
+    // Threshold: 3+ confirmations → add to favorites
+    if (count >= 3 && !prefs.favorites.includes(foodName)) {
+      const newPrefs = {
+        ...prefs,
+        favorites: [...prefs.favorites, foodName],
+      };
+      await updateSettings({ dietaryPreferences: newPrefs });
+    }
   };
 
   const handleQuickReply = (reply: string) => {
@@ -668,7 +711,7 @@ export function UnifiedChat() {
                   consumedAt: pendingConsumedAt,
                 } as FoodEntry}
                 onConfirm={handleConfirmFood}
-                onEdit={handleEditFood}
+                onSaveEdit={handleSavePendingEdit}
                 onCancel={handleCancelFood}
                 showCalories={settings.calorieTrackingEnabled}
                 isConfirmed={false}
