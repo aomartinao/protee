@@ -25,6 +25,9 @@ import {
   getAllDailyGoalsForSync,
   getDailyGoalBySyncId,
   upsertDailyGoalBySyncId,
+  markEntrySynced,
+  markEntryFailed,
+  getPendingSyncCount,
 } from '@/db';
 import type { FoodEntry, UserSettings, ChatMessage, DailyGoal } from '@/types';
 
@@ -80,6 +83,30 @@ interface DbDailyGoal {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+/**
+ * Check if we can actually reach Supabase (not just browser online status)
+ * Returns true if we can connect, false otherwise
+ */
+export async function checkConnectivity(): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    // Simple health check - try to get session (lightweight operation)
+    const { error } = await supabase.auth.getSession();
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get count of entries pending sync
+ */
+export async function getUnsyncedCount(): Promise<number> {
+  return getPendingSyncCount();
 }
 
 // Helper to safely convert to Date
@@ -193,13 +220,25 @@ async function pushToCloud(userId: string, lastPushTime: Date | null): Promise<{
         if (error) {
           console.error('[Sync] Push error for entry:', entry.syncId, error);
           errors.push(`${entry.syncId}: ${error.message}`);
+          // Mark entry as failed so user knows it didn't sync
+          if (entry.syncId) {
+            await markEntryFailed(entry.syncId);
+          }
         } else {
           console.log('[Sync] Push: Successfully upserted entry:', entry.syncId, 'response:', data);
           pushedCount++;
+          // Mark entry as synced
+          if (entry.syncId) {
+            await markEntrySynced(entry.syncId);
+          }
         }
       } catch (err) {
         console.error('[Sync] Push exception for entry:', entry.syncId, err);
         errors.push(`${entry.syncId}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        // Mark entry as failed
+        if (entry.syncId) {
+          await markEntryFailed(entry.syncId);
+        }
       }
     }
 

@@ -57,6 +57,24 @@ db.version(4).stores({
   chatMessages: '++id, syncId, timestamp',
 });
 
+// Version 5: Added syncStatus field for tracking per-entry sync state
+db.version(5).stores({
+  foodEntries: '++id, date, source, createdAt, syncStatus',
+  userSettings: '++id',
+  dailyGoals: '++id, date',
+  syncMeta: '++id, key',
+  chatMessages: '++id, syncId, timestamp',
+}).upgrade(tx => {
+  // Migrate existing entries - assume they are synced if they have a syncId
+  return tx.table('foodEntries').toCollection().modify(entry => {
+    if (!entry.syncStatus) {
+      // If entry has syncId and was previously synced, mark as synced
+      // Otherwise mark as pending to be safe
+      entry.syncStatus = entry.syncId ? 'synced' : 'pending';
+    }
+  });
+});
+
 export { db };
 
 // Helper functions
@@ -76,12 +94,13 @@ export async function getEntriesForDateRange(startDate: string, endDate: string)
 }
 
 export async function addFoodEntry(entry: Omit<FoodEntry, 'id'>): Promise<number> {
-  // Ensure sync fields are set
+  // Ensure sync fields are set - new entries are always pending until synced
   const entryWithSync = {
     ...entry,
     syncId: entry.syncId || crypto.randomUUID(),
     updatedAt: entry.updatedAt || new Date(),
     createdAt: entry.createdAt || new Date(),
+    syncStatus: entry.syncStatus || 'pending',  // New entries start as pending
   };
   const id = await db.foodEntries.add(entryWithSync as FoodEntry);
   return id as number;
@@ -113,7 +132,13 @@ export async function hardDeleteFoodEntry(id: number): Promise<void> {
 }
 
 export async function updateFoodEntry(id: number, updates: Partial<FoodEntry>): Promise<number> {
-  return db.foodEntries.update(id, updates);
+  // Mark entry as pending when updated (needs to sync again)
+  const updatesWithSync = {
+    ...updates,
+    updatedAt: new Date(),
+    syncStatus: 'pending' as const,
+  };
+  return db.foodEntries.update(id, updatesWithSync);
 }
 
 export async function getUserSettings(): Promise<UserSettings | undefined> {
@@ -420,6 +445,68 @@ export async function getFrequentMeals(limit: number = 5, daysBack: number = 30)
     .slice(0, limit);
 
   return sorted;
+}
+
+// Sync status tracking helpers
+
+/**
+ * Get count of entries pending sync (not yet uploaded to cloud)
+ */
+export async function getPendingSyncCount(): Promise<number> {
+  const entries = await db.foodEntries.where('syncStatus').equals('pending').toArray();
+  // Only count non-deleted entries
+  return entries.filter(e => !e.deletedAt).length;
+}
+
+/**
+ * Get all entries that need to be synced (pending or failed)
+ */
+export async function getEntriesNeedingSync(): Promise<FoodEntry[]> {
+  const pending = await db.foodEntries.where('syncStatus').equals('pending').toArray();
+  const failed = await db.foodEntries.where('syncStatus').equals('failed').toArray();
+  return [...pending, ...failed];
+}
+
+/**
+ * Mark an entry as successfully synced
+ */
+export async function markEntrySynced(syncId: string): Promise<void> {
+  const entry = await getEntryBySyncId(syncId);
+  if (entry?.id) {
+    await db.foodEntries.update(entry.id, { syncStatus: 'synced' });
+  }
+}
+
+/**
+ * Mark an entry as failed to sync
+ */
+export async function markEntryFailed(syncId: string): Promise<void> {
+  const entry = await getEntryBySyncId(syncId);
+  if (entry?.id) {
+    await db.foodEntries.update(entry.id, { syncStatus: 'failed' });
+  }
+}
+
+/**
+ * Mark multiple entries as synced by their syncIds
+ */
+export async function markEntriesSynced(syncIds: string[]): Promise<void> {
+  for (const syncId of syncIds) {
+    await markEntrySynced(syncId);
+  }
+}
+
+/**
+ * Reset all failed entries to pending (for retry)
+ */
+export async function resetFailedEntriesToPending(): Promise<number> {
+  const failed = await db.foodEntries.where('syncStatus').equals('failed').toArray();
+  for (const entry of failed) {
+    if (entry.id) {
+      await db.foodEntries.update(entry.id, { syncStatus: 'pending' });
+    }
+  }
+  return failed.length;
 }
 
 export async function cleanupOldChatMessages(olderThanDays: number = 7): Promise<number> {

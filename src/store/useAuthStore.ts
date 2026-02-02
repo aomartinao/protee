@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User, Session } from '@supabase/supabase-js';
 import { getSupabase } from '@/services/supabase';
-import { fullSync, pushSettingsToCloud, pullSettingsFromCloud, clearSyncMeta, type SyncResult } from '@/services/sync';
+import { fullSync, pushSettingsToCloud, pullSettingsFromCloud, clearSyncMeta, checkConnectivity, getUnsyncedCount, type SyncResult } from '@/services/sync';
 import { checkHasAdminApiKey } from '@/services/ai/proxy';
 import type { UserSettings } from '@/types';
 import { useStore } from './useStore';
@@ -18,6 +18,8 @@ interface AuthState {
   lastSyncTime: Date | null;
   isSyncing: boolean;
   syncError: string | null;
+  pendingSyncCount: number;  // Number of entries waiting to sync
+  isOnline: boolean;         // Whether we can reach Supabase
 
   // Actions
   setUser: (user: User | null) => void;
@@ -36,6 +38,8 @@ interface AuthState {
   syncSettings: (settings: UserSettings) => Promise<boolean>;
   loadSettingsFromCloud: () => Promise<UserSettings | null>;
   checkAdminApiKey: () => Promise<boolean>;
+  updatePendingCount: () => Promise<void>;
+  checkOnlineStatus: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -49,6 +53,8 @@ export const useAuthStore = create<AuthState>()(
       lastSyncTime: null,
       isSyncing: false,
       syncError: null,
+      pendingSyncCount: 0,
+      isOnline: true,  // Assume online initially
 
       // Setters
       setUser: (user) => set({ user }),
@@ -159,6 +165,17 @@ export const useAuthStore = create<AuthState>()(
         set({ isSyncing: true, syncError: null });
 
         try {
+          // Check connectivity first
+          const isOnline = await checkConnectivity();
+          set({ isOnline });
+
+          if (!isOnline) {
+            // Update pending count even if offline
+            await get().updatePendingCount();
+            set({ isSyncing: false, syncError: 'Unable to reach server' });
+            return { success: false, pushed: 0, pulled: 0, error: 'Unable to reach server' };
+          }
+
           const result = await fullSync(user.id);
 
           set({
@@ -166,6 +183,9 @@ export const useAuthStore = create<AuthState>()(
             lastSyncTime: result.success ? new Date() : get().lastSyncTime,
             syncError: result.error ?? null,
           });
+
+          // Always update pending count after sync attempt
+          await get().updatePendingCount();
 
           // Reload data from IndexedDB after successful sync
           if (result.success) {
@@ -184,7 +204,9 @@ export const useAuthStore = create<AuthState>()(
           return result;
         } catch (err) {
           const error = err instanceof Error ? err.message : 'Sync failed';
-          set({ isSyncing: false, syncError: error });
+          set({ isSyncing: false, syncError: error, isOnline: false });
+          // Update pending count even on error
+          await get().updatePendingCount();
           return { success: false, pushed: 0, pulled: 0, error };
         }
       },
@@ -215,6 +237,28 @@ export const useAuthStore = create<AuthState>()(
           return hasAdminKey;
         } catch (err) {
           console.error('[Auth] Failed to check admin API key:', err);
+          return false;
+        }
+      },
+
+      // Update pending sync count
+      updatePendingCount: async () => {
+        try {
+          const count = await getUnsyncedCount();
+          set({ pendingSyncCount: count });
+        } catch (err) {
+          console.error('[Auth] Failed to get pending count:', err);
+        }
+      },
+
+      // Check if we can actually reach Supabase
+      checkOnlineStatus: async () => {
+        try {
+          const online = await checkConnectivity();
+          set({ isOnline: online });
+          return online;
+        } catch {
+          set({ isOnline: false });
           return false;
         }
       },
@@ -255,6 +299,8 @@ export async function initializeAuth() {
       startAutoSync();
       // Initial sync on app start
       useAuthStore.getState().syncData();
+      // Initial pending count update
+      useAuthStore.getState().updatePendingCount();
     }
 
     // Listen for auth changes

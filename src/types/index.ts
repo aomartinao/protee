@@ -12,6 +12,7 @@ export interface FoodEntry {
   createdAt: Date;
   updatedAt?: Date;          // For sync conflict resolution (set on persist)
   deletedAt?: Date;          // Soft delete for sync (null = not deleted)
+  syncStatus?: 'pending' | 'synced' | 'failed';  // Track sync state per entry
 }
 
 export interface UserSettings {
