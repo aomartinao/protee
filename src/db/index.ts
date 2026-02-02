@@ -365,6 +365,63 @@ export async function clearAllChatMessages(): Promise<void> {
 }
 
 // Clean up old chat messages (hard delete, not soft delete)
+// Get frequent meals for quick log shortcuts
+export interface FrequentMeal {
+  foodName: string;
+  protein: number;
+  calories?: number;
+  count: number;
+}
+
+export async function getFrequentMeals(limit: number = 5, daysBack: number = 30): Promise<FrequentMeal[]> {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+  const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+
+  const entries = await db.foodEntries
+    .where('date')
+    .aboveOrEqual(cutoffDateStr)
+    .toArray();
+
+  // Filter out deleted entries and count by normalized food name
+  const mealCounts = new Map<string, { protein: number; calories?: number; count: number }>();
+
+  for (const entry of entries) {
+    if (entry.deletedAt) continue;
+
+    // Normalize food name (lowercase, trim)
+    const normalizedName = entry.foodName.toLowerCase().trim();
+
+    const existing = mealCounts.get(normalizedName);
+    if (existing) {
+      existing.count++;
+      // Use the most recent protein/calorie values
+      existing.protein = entry.protein;
+      existing.calories = entry.calories;
+    } else {
+      mealCounts.set(normalizedName, {
+        protein: entry.protein,
+        calories: entry.calories,
+        count: 1,
+      });
+    }
+  }
+
+  // Convert to array and sort by count (descending)
+  const sorted = Array.from(mealCounts.entries())
+    .map(([foodName, data]) => ({
+      foodName: foodName.charAt(0).toUpperCase() + foodName.slice(1), // Capitalize first letter
+      protein: data.protein,
+      calories: data.calories,
+      count: data.count,
+    }))
+    .filter(m => m.count >= 2) // Only show meals logged at least twice
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+
+  return sorted;
+}
+
 export async function cleanupOldChatMessages(olderThanDays: number = 7): Promise<number> {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);

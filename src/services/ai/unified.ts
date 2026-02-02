@@ -372,20 +372,78 @@ export async function processUnifiedMessage(
 // Generate a contextual greeting when user opens the chat
 export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse {
   const { insights, nickname, remaining } = context;
-  const hour = new Date().getHours();
+  const now = new Date();
+  const hour = now.getHours();
   const name = nickname ? `${nickname}` : '';
 
-  // Late night, goal met
+  // Late night, goal met - celebrate!
   if ((hour >= 21 || hour < 5) && insights.percentComplete >= 100) {
+    const streakMsg = insights.currentStreak >= 3
+      ? ` That's ${insights.currentStreak} days in a row!`
+      : '';
     return {
       intent: 'greeting',
-      message: `${insights.todayProtein}g today - goal crushed! 💪`,
+      message: `${insights.todayProtein}g today - goal crushed! 💪${streakMsg}`,
       quickReplies: ['Plan tomorrow', 'Quick snack ideas'],
     };
   }
 
-  // Behind schedule
+  // Streak milestone - acknowledge big achievements
+  if (insights.currentStreak >= 7 && insights.percentComplete >= 100) {
+    return {
+      intent: 'greeting',
+      message: `🔥 ${insights.currentStreak}-day streak! You're on fire, ${name || 'champ'}!`,
+      quickReplies: ['Keep it going', 'What worked this week?'],
+    };
+  }
+
+  // Streak broken yesterday - motivate recovery
+  if (insights.currentStreak === 0 && insights.longestStreak > 3 && insights.daysTracked > 7) {
+    return {
+      intent: 'greeting',
+      message: `Fresh start today! Your best was ${insights.longestStreak} days - let's build back up.`,
+      quickReplies: ['Log a meal', 'Motivate me'],
+    };
+  }
+
+  // Pattern-based: weak meal time opportunity
+  if (insights.weakestMealTime && insights.mealsToday > 0) {
+    const mealTimeLabels = { breakfast: 'morning', lunch: 'lunch', dinner: 'dinner', snacks: 'snack' };
+    const strongTime = insights.strongestMealTime ? mealTimeLabels[insights.strongestMealTime] : null;
+
+    // Morning - suggest breakfast improvement if that's weak
+    if (hour >= 6 && hour < 11 && insights.weakestMealTime === 'breakfast') {
+      return {
+        intent: 'greeting',
+        message: `${strongTime ? `Your ${strongTime} game is strong! ` : ''}Breakfast is your opportunity - want some high-protein ideas?`,
+        quickReplies: ['Breakfast ideas', 'Log breakfast'],
+      };
+    }
+
+    // Afternoon - suggest lunch improvement if that's weak
+    if (hour >= 11 && hour < 15 && insights.weakestMealTime === 'lunch') {
+      return {
+        intent: 'greeting',
+        message: `Lunch tends to be lighter on protein for you. Want suggestions to boost it?`,
+        quickReplies: ['Lunch ideas', 'Log lunch'],
+      };
+    }
+  }
+
+  // Behind schedule with specific guidance
   if (insights.isBehindSchedule && remaining > 30) {
+    // Calculate how many hours until typical sleep time (assume 10pm if not set)
+    const hoursLeft = insights.hoursUntilSleep || (22 - hour);
+    const proteinPerMeal = Math.ceil(remaining / Math.max(1, Math.floor(hoursLeft / 3)));
+
+    if (hoursLeft > 0 && hoursLeft < 6) {
+      return {
+        intent: 'greeting',
+        message: `${remaining}g to go with ${hoursLeft}h left. One solid ${proteinPerMeal}g meal could do it!`,
+        quickReplies: ['Quick high-protein options', 'Log a meal'],
+      };
+    }
+
     return {
       intent: 'greeting',
       message: `${name ? name + ', ' : ''}${remaining}g to go. What's the plan?`,
@@ -393,21 +451,50 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     };
   }
 
-  // On track
+  // On track - positive reinforcement
   if (insights.percentComplete >= 70) {
+    const almostMsg = remaining <= 20
+      ? `Just ${remaining}g away - one snack and you're there!`
+      : `${insights.todayProtein}g down, ${remaining}g to go. Almost there!`;
     return {
       intent: 'greeting',
-      message: `${insights.todayProtein}g down, ${remaining}g to go. Almost there!`,
+      message: almostMsg,
       quickReplies: ['Log a meal', 'What should I eat?'],
     };
   }
 
-  // Morning, no meals yet
+  // Morning, no meals yet - check consistency patterns
   if (hour >= 6 && hour < 11 && insights.mealsToday === 0) {
+    // If they usually log breakfast by now
+    if (hour >= 9 && insights.strongestMealTime === 'breakfast') {
+      return {
+        intent: 'greeting',
+        message: `${name ? name + ', ' : ''}You're usually crushing breakfast by now! Ready to start?`,
+        quickReplies: ['Breakfast ideas', 'Log a meal'],
+      };
+    }
     return {
       intent: 'greeting',
       message: `${name ? 'Morning ' + name + '! ' : ''}Ready to start? Log breakfast or ask for ideas.`,
       quickReplies: ['Breakfast ideas', 'Log a meal'],
+    };
+  }
+
+  // Consistency feedback for users with history
+  if (insights.daysTracked >= 7 && insights.consistencyPercent >= 80) {
+    return {
+      intent: 'greeting',
+      message: `${insights.consistencyPercent.toFixed(0)}% consistency - solid work! ${insights.todayProtein}g logged so far.`,
+      quickReplies: ['Log a meal', 'Suggest something'],
+    };
+  }
+
+  // Improving trend encouragement
+  if (insights.trend === 'improving' && insights.daysTracked >= 7) {
+    return {
+      intent: 'greeting',
+      message: `Trending up! Your last 7 days avg (${insights.last7DaysAvg.toFixed(0)}g) is better than before. Keep it going!`,
+      quickReplies: ['Log a meal', 'What should I eat?'],
     };
   }
 

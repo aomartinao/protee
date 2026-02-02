@@ -7,6 +7,7 @@ import { UnifiedChat } from '@/pages/UnifiedChat';
 import { History } from '@/pages/History';
 import { Settings } from '@/pages/Settings';
 import { SwipeProvider } from '@/context/SwipeContext';
+import { Toaster } from '@/components/ui/toaster';
 import { initializeAuth, useAuthStore } from '@/store/useAuthStore';
 import { hasFeature } from '@/lib/features';
 
@@ -38,6 +39,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      <Toaster />
     </SwipeProvider>
   );
 }
