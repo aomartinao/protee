@@ -10,6 +10,7 @@ import { SwipeProvider } from '@/context/SwipeContext';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAuth, useAuthStore } from '@/store/useAuthStore';
 import { hasFeature } from '@/lib/features';
+import { Analytics } from '@vercel/analytics/react';
 
 // Coach page - unified experience for beta users, old Chat for others
 function CoachPage() {
@@ -40,6 +41,7 @@ function App() {
         </Routes>
       </BrowserRouter>
       <Toaster />
+      <Analytics />
     </SwipeProvider>
   );
 }
