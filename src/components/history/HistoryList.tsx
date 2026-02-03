@@ -1,20 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { format, parseISO } from 'date-fns';
-import { CheckCircle, Dumbbell, Loader2, Send, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { CheckCircle, Dumbbell } from 'lucide-react';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { refineAnalysis } from '@/services/ai/client';
 import { useSettings } from '@/hooks/useProteinData';
 import { calculateMPSHits } from '@/lib/utils';
-import type { FoodEntry, DailyStats } from '@/types';
+import type { FoodEntry, DailyStats, ConfidenceLevel } from '@/types';
 
 interface HistoryListProps {
   entries: FoodEntry[];
@@ -28,85 +20,50 @@ interface HistoryListProps {
 export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnabled, onDelete, onEdit }: HistoryListProps) {
   const { settings } = useSettings();
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editProtein, setEditProtein] = useState('');
-  const [editCalories, setEditCalories] = useState('');
-  const [editDate, setEditDate] = useState('');
-  const [editTime, setEditTime] = useState('');
-  const [editRefinement, setEditRefinement] = useState('');
-  const [isRefining, setIsRefining] = useState(false);
 
   const handleEditClick = (entry: FoodEntry) => {
     setEditingEntry(entry);
-    setEditName(entry.foodName);
-    setEditProtein(entry.protein.toString());
-    setEditCalories(entry.calories?.toString() || '');
-    setEditDate(entry.date);
-    const timeSource = entry.consumedAt || entry.createdAt;
-    setEditTime(format(timeSource, 'HH:mm'));
   };
 
-  const handleSaveEdit = () => {
-    if (!editingEntry || !onEdit) return;
+  const handleSaveEdit = useCallback(async (entryId: number, updates: Partial<FoodEntry>) => {
+    if (!onEdit || !editingEntry) return;
 
-    let consumedAt: Date | undefined;
-    if (editDate && editTime) {
-      const [year, month, day] = editDate.split('-').map(Number);
-      const [hours, minutes] = editTime.split(':').map(Number);
-      consumedAt = new Date(year, month - 1, day, hours, minutes);
-    }
-
+    // Merge updates with the original entry
     const updatedEntry: FoodEntry = {
       ...editingEntry,
-      foodName: editName,
-      protein: parseInt(editProtein, 10) || 0,
-      calories: editCalories ? parseInt(editCalories, 10) : undefined,
-      date: editDate || editingEntry.date,
-      consumedAt,
+      ...updates,
     };
 
     onEdit(updatedEntry);
-    setEditingEntry(null);
-    setEditRefinement('');
-  };
+  }, [onEdit, editingEntry]);
 
-  const handleRefineEdit = async () => {
+  const handleRefineEdit = useCallback(async (
+    originalAnalysis: {
+      foodName: string;
+      protein: number;
+      calories: number;
+      confidence: ConfidenceLevel;
+      consumedAt?: { parsedDate: string; parsedTime: string };
+    },
+    refinement: string
+  ) => {
     const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
     const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
 
-    if (!editRefinement.trim() || !hasApiAccess) return;
+    if (!hasApiAccess) return null;
 
-    setIsRefining(true);
     try {
-      const originalAnalysis = {
-        foodName: editName,
-        protein: parseInt(editProtein, 10) || 0,
-        calories: editCalories ? parseInt(editCalories, 10) : 0,
-        confidence: editingEntry?.confidence || ('medium' as const),
-        consumedAt: editDate && editTime
-          ? { parsedDate: editDate, parsedTime: editTime }
-          : undefined,
+      const result = await refineAnalysis(settings.claudeApiKey || null, originalAnalysis, refinement, useProxy);
+      return {
+        foodName: result.foodName,
+        protein: result.protein,
+        calories: result.calories,
       };
-
-      const result = await refineAnalysis(settings.claudeApiKey || null, originalAnalysis, editRefinement, useProxy);
-
-      setEditName(result.foodName);
-      setEditProtein(result.protein.toString());
-      if (result.calories !== undefined) {
-        setEditCalories(result.calories.toString());
-      }
-      if (result.consumedAt) {
-        setEditDate(result.consumedAt.parsedDate);
-        setEditTime(result.consumedAt.parsedTime);
-      }
-
-      setEditRefinement('');
     } catch (error) {
       console.error('Refinement failed:', error);
-    } finally {
-      setIsRefining(false);
+      return null;
     }
-  };
+  }, [settings.claudeApiKey, settings.hasAdminApiKey]);
 
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, DailyStats>();
@@ -138,8 +95,8 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
     const result = Array.from(groups.values());
     for (const day of result) {
       day.entries.sort((a, b) => {
-        const timeA = (a.consumedAt || a.createdAt).getTime();
-        const timeB = (b.consumedAt || b.createdAt).getTime();
+        const timeA = new Date(a.consumedAt || a.createdAt).getTime();
+        const timeB = new Date(b.consumedAt || b.createdAt).getTime();
         return timeB - timeA; // Most recent first
       });
     }
@@ -161,6 +118,8 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
     }
     return allHitIds;
   }, [groupedByDate, settings.mpsTrackingEnabled]);
+
+  const hasAIAccess = !!(settings.claudeApiKey || settings.hasAdminApiKey);
 
   if (entries.length === 0) {
     return (
@@ -225,7 +184,7 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{entry.foodName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(entry.consumedAt || entry.createdAt, 'h:mm a')}
+                        {format(new Date(entry.consumedAt || entry.createdAt), 'h:mm a')}
                       </p>
                     </div>
 
@@ -249,115 +208,15 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
         ))}
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Entry</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Food Name</label>
-              <Input
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="h-11"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Protein (g)</label>
-                <Input
-                  type="number"
-                  value={editProtein}
-                  onChange={(e) => setEditProtein(e.target.value)}
-                  min={0}
-                  max={500}
-                  className="h-11"
-                />
-              </div>
-              {calorieTrackingEnabled && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Calories</label>
-                  <Input
-                    type="number"
-                    value={editCalories}
-                    onChange={(e) => setEditCalories(e.target.value)}
-                    min={0}
-                    max={10000}
-                    className="h-11"
-                  />
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Date</label>
-                <Input
-                  type="date"
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="h-11"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Time</label>
-                <Input
-                  type="time"
-                  value={editTime}
-                  onChange={(e) => setEditTime(e.target.value)}
-                  className="h-11"
-                />
-              </div>
-            </div>
-
-            {/* AI Refinement Section */}
-            {settings.claudeApiKey && (
-              <div className="pt-4 border-t space-y-2">
-                <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Or describe what changed
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    value={editRefinement}
-                    onChange={(e) => setEditRefinement(e.target.value)}
-                    placeholder="e.g., it was 200g not 100g, add fries..."
-                    disabled={isRefining}
-                    className="h-11"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleRefineEdit();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="secondary"
-                    className="h-11 w-11"
-                    onClick={handleRefineEdit}
-                    disabled={!editRefinement.trim() || isRefining}
-                  >
-                    {isRefining ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setEditingEntry(null); setEditRefinement(''); }}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdit}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FoodEntryEditDialog
+        entry={editingEntry}
+        open={!!editingEntry}
+        onOpenChange={(open) => !open && setEditingEntry(null)}
+        onSave={handleSaveEdit}
+        onRefine={handleRefineEdit}
+        showCalories={calorieTrackingEnabled}
+        hasAIAccess={hasAIAccess}
+      />
     </>
   );
 }

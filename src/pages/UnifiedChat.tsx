@@ -6,7 +6,7 @@ import { FoodCard } from '@/components/chat/FoodCard';
 import { LoggedFoodCard } from '@/components/chat/LoggedFoodCard';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { QuickLogShortcuts } from '@/components/chat/QuickLogShortcuts';
-import { FoodEntryEditDialog } from '@/components/chat/FoodEntryEditDialog';
+import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { ToastAction } from '@/components/ui/toast';
