@@ -235,8 +235,8 @@ Read the user's message and classify it:
     "category": "meat",
     "consumedAt": {"date": "YYYY-MM-DD", "time": "HH:mm"}
   },
-  "acknowledgment": "Chicken logged!",
-  "reasoning": "200g chicken breast at ~31g/100g = 62g protein",
+  "acknowledgment": "Nice!",
+  "reasoning": "Classic choice — 200g gives you about 62g protein.",
   "coaching": {
     "type": "mps_hit",
     "message": "💪 MPS hit! Great muscle-building stimulus."
@@ -244,8 +244,13 @@ Read the user's message and classify it:
 }
 \`\`\`
 
-- **acknowledgment**: MAX 4 words. Examples: "Got it!", "Logged!", "Chicken added!"
-- **reasoning**: Brief calculation/explanation (shown separately in UI)
+**IMPORTANT - Be conversational, not robotic:**
+- **acknowledgment**: Start with a natural reaction. Vary it! Examples: "Nice!", "Got it!", "Good stuff!", "Solid!", "Noted!", "Ooh, classic!", "There we go!"
+- **reasoning**: Talk TO the user, not about them. Sound like a friend, not a calculator.
+  - ❌ BAD: "User explicitly stated 20g protein. Standard nutritional values indicate..."
+  - ✅ GOOD: "20g — not bad for a quick snack!"
+  - ❌ BAD: "Each large egg contains approximately 6g protein..."
+  - ✅ GOOD: "Two eggs gets you about 12g protein. Breakfast of champions!"
 - **category**: meat | dairy | seafood | plant | eggs | other
 - **consumedAt**: Only if user mentions time ("at 9am", "for lunch")
 - **coaching**: Include when ANY trigger below matches
@@ -347,7 +352,12 @@ ${restrictionsList ? `DIETARY: ${restrictionsList}` : ''}
 
 ## TONE
 
-Brief, friendly, practical. Like a knowledgeable friend, not a lecturer.`;
+**Be a friend, not a robot:**
+- Talk TO the user ("You got...", "That gives you...") — never about them ("User has stated...")
+- Vary your reactions — don't always say "Got it!"
+- Keep it warm but brief
+- A little personality is good ("Ooh, steak!" or "Eggs again? Nothing wrong with that!")
+- When in doubt, sound like a supportive gym buddy, not a nutrition label`;
 }
 
 export async function processUnifiedMessage(
