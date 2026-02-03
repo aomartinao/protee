@@ -324,14 +324,16 @@ export function DailyProgress({
             </div>
           )}
 
-          {/* Divider */}
-          <div className="h-10 w-px bg-border" />
-
-          {/* Entries count */}
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold text-foreground">{entries.length}</span>
-            <span className="text-xs text-muted-foreground">entries</span>
-          </div>
+          {/* Divider and Entries count - only shown when MPS is enabled */}
+          {mpsTrackingEnabled && (
+            <>
+              <div className="h-10 w-px bg-border" />
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold text-foreground">{entries.length}</span>
+                <span className="text-xs text-muted-foreground">entries</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Entries Section - Scrollable */}
