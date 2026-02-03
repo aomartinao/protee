@@ -77,11 +77,31 @@ db.version(5).stores({
 
 export { db };
 
+/**
+ * Normalize dates in a food entry - IndexedDB stores Date objects as strings,
+ * so we need to convert them back when reading.
+ */
+function normalizeFoodEntryDates(entry: FoodEntry): FoodEntry {
+  return {
+    ...entry,
+    createdAt: entry.createdAt instanceof Date ? entry.createdAt : new Date(entry.createdAt),
+    updatedAt: entry.updatedAt
+      ? (entry.updatedAt instanceof Date ? entry.updatedAt : new Date(entry.updatedAt))
+      : undefined,
+    deletedAt: entry.deletedAt
+      ? (entry.deletedAt instanceof Date ? entry.deletedAt : new Date(entry.deletedAt))
+      : undefined,
+    consumedAt: entry.consumedAt
+      ? (entry.consumedAt instanceof Date ? entry.consumedAt : new Date(entry.consumedAt))
+      : undefined,
+  };
+}
+
 // Helper functions
 export async function getEntriesForDate(date: string): Promise<FoodEntry[]> {
   const entries = await db.foodEntries.where('date').equals(date).toArray();
-  // Filter out soft-deleted entries
-  return entries.filter(e => !e.deletedAt);
+  // Filter out soft-deleted entries and normalize dates
+  return entries.filter(e => !e.deletedAt).map(normalizeFoodEntryDates);
 }
 
 export async function getEntriesForDateRange(startDate: string, endDate: string): Promise<FoodEntry[]> {
@@ -89,8 +109,8 @@ export async function getEntriesForDateRange(startDate: string, endDate: string)
     .where('date')
     .between(startDate, endDate, true, true)
     .toArray();
-  // Filter out soft-deleted entries
-  return entries.filter(e => !e.deletedAt);
+  // Filter out soft-deleted entries and normalize dates
+  return entries.filter(e => !e.deletedAt).map(normalizeFoodEntryDates);
 }
 
 export async function addFoodEntry(entry: Omit<FoodEntry, 'id'>): Promise<number> {
@@ -226,20 +246,23 @@ export async function setSyncMeta(key: string, value: string): Promise<void> {
 
 // Get all entries (including deleted) for sync
 export async function getAllEntriesForSync(): Promise<FoodEntry[]> {
-  return db.foodEntries.toArray();
+  const entries = await db.foodEntries.toArray();
+  return entries.map(normalizeFoodEntryDates);
 }
 
 // Get entries modified after a timestamp
 export async function getEntriesModifiedAfter(timestamp: Date): Promise<FoodEntry[]> {
   // Can't use index query with potentially undefined updatedAt, filter manually
   const entries = await db.foodEntries.toArray();
-  return entries.filter(e => e.updatedAt && e.updatedAt > timestamp);
+  return entries
+    .map(normalizeFoodEntryDates)
+    .filter(e => e.updatedAt && e.updatedAt > timestamp);
 }
 
 // Get active (non-deleted) entries
 export async function getActiveEntries(): Promise<FoodEntry[]> {
   const entries = await db.foodEntries.toArray();
-  return entries.filter(e => !e.deletedAt);
+  return entries.map(normalizeFoodEntryDates).filter(e => !e.deletedAt);
 }
 
 // Upsert entry by syncId (for sync)
@@ -262,7 +285,8 @@ export async function upsertEntryBySyncId(entry: FoodEntry): Promise<void> {
 export async function getEntryBySyncId(syncId: string): Promise<FoodEntry | undefined> {
   if (!syncId) return undefined;
   const entries = await db.foodEntries.toArray();
-  return entries.find(e => e.syncId === syncId);
+  const entry = entries.find(e => e.syncId === syncId);
+  return entry ? normalizeFoodEntryDates(entry) : undefined;
 }
 
 // Helper to serialize dates for storage
@@ -464,7 +488,7 @@ export async function getPendingSyncCount(): Promise<number> {
 export async function getEntriesNeedingSync(): Promise<FoodEntry[]> {
   const pending = await db.foodEntries.where('syncStatus').equals('pending').toArray();
   const failed = await db.foodEntries.where('syncStatus').equals('failed').toArray();
-  return [...pending, ...failed];
+  return [...pending, ...failed].map(normalizeFoodEntryDates);
 }
 
 /**

@@ -300,8 +300,13 @@ async function pullFromCloud(userId: string, lastPullTime: Date | null): Promise
       .eq('user_id', userId);
 
     // Delta sync: only get changes since last pull
+    // Use gte (>=) and subtract a buffer to avoid missing entries due to:
+    // 1. Exact timestamp matches being excluded by gt (>)
+    // 2. Clock drift between devices
     if (lastPullTime) {
-      query = query.gt('updated_at', lastPullTime.toISOString());
+      const bufferMs = 5000; // 5 second buffer for clock drift
+      const adjustedTime = new Date(lastPullTime.getTime() - bufferMs);
+      query = query.gte('updated_at', adjustedTime.toISOString());
     }
 
     const { data: cloudEntries, error } = await query;
@@ -468,7 +473,10 @@ async function pullChatMessagesFromCloud(
       .limit(200);
 
     if (lastPullTime) {
-      query = query.gt('updated_at', lastPullTime.toISOString());
+      // Use gte with buffer to avoid missing entries due to clock drift
+      const bufferMs = 5000;
+      const adjustedTime = new Date(lastPullTime.getTime() - bufferMs);
+      query = query.gte('updated_at', adjustedTime.toISOString());
     }
 
     const { data: cloudMessages, error } = await query;
@@ -649,7 +657,10 @@ async function pullDailyGoalsFromCloud(
       .eq('user_id', userId);
 
     if (lastPullTime) {
-      query = query.gt('updated_at', lastPullTime.toISOString());
+      // Use gte with buffer to avoid missing entries due to clock drift
+      const bufferMs = 5000;
+      const adjustedTime = new Date(lastPullTime.getTime() - bufferMs);
+      query = query.gte('updated_at', adjustedTime.toISOString());
     }
 
     const { data: cloudGoals, error } = await query;
@@ -741,19 +752,22 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
     console.log('[Sync] Cloud settings:', cloudSettings);
 
     if (cloudSettings) {
-      // Merge: cloud wins for most fields, but preserve local values if cloud is empty/null
-      // For boolean toggles, preserve local true values (user explicitly enabled)
+      // Merge strategy:
+      // - Cloud wins for most fields (cloud is authoritative)
+      // - For boolean toggles: true wins (if either cloud or local has true, use true)
+      //   This ensures enabling a feature on any device propagates everywhere
+      // - For sensitive fields: local wins (security)
       const mergedSettings: UserSettings = {
         ...cloudSettings,
-        // Keep local API key if set (security)
+        // Keep local API key if set (security - never overwrite local key)
         claudeApiKey: localSettings?.claudeApiKey || cloudSettings.claudeApiKey,
         // Keep local dietary preferences if cloud doesn't have them
         dietaryPreferences: cloudSettings.dietaryPreferences || localSettings?.dietaryPreferences,
-        // Keep local onboarding state if cloud doesn't have it (OR logic - true wins)
+        // For boolean toggles: true wins (enabling on any device should propagate)
         advisorOnboarded: cloudSettings.advisorOnboarded || localSettings?.advisorOnboarded,
         advisorOnboardingStarted: cloudSettings.advisorOnboardingStarted || localSettings?.advisorOnboardingStarted,
         logWelcomeShown: cloudSettings.logWelcomeShown || localSettings?.logWelcomeShown,
-        // Preserve tracking toggles if locally enabled (OR logic - true wins)
+        // For tracking toggles: true wins (enabling on any device should propagate)
         calorieTrackingEnabled: cloudSettings.calorieTrackingEnabled || localSettings?.calorieTrackingEnabled,
         mpsTrackingEnabled: cloudSettings.mpsTrackingEnabled || localSettings?.mpsTrackingEnabled,
       };
