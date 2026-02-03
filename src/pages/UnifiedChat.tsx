@@ -18,7 +18,7 @@ import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
 import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange, hardDeleteFoodEntry, type FrequentMeal } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
-import { getToday, calculateMPSHits, triggerHaptic } from '@/lib/utils';
+import { getToday, calculateMPSHits, calculateMPSAnalysis, calculateCategoryBreakdown, triggerHaptic } from '@/lib/utils';
 import { refineAnalysis } from '@/services/ai/client';
 import {
   processUnifiedMessage,
@@ -140,6 +140,19 @@ export function UnifiedChat() {
       };
     }
 
+    // Calculate MPS analysis for coaching triggers
+    const mpsAnalysis = calculateMPSAnalysis(todayEntries);
+
+    // Calculate protein by category for variety nudges
+    const todayByCategory = calculateCategoryBreakdown(todayEntries);
+
+    // Determine if preferences came from settings or conversation
+    const hasPreferences = prefs.allergies?.length ||
+      prefs.intolerances?.length ||
+      prefs.dietaryRestrictions?.length ||
+      prefs.sleepTime;
+    const preferencesSource = hasPreferences ? 'settings' : 'none';
+
     return {
       goal: settings.defaultGoal,
       consumed: insights.todayProtein,
@@ -151,8 +164,11 @@ export function UnifiedChat() {
       insights,
       recentMeals,
       lastLoggedEntry,
+      mpsAnalysis,
+      todayByCategory,
+      preferencesSource,
     };
-  }, [settings, insights, nickname, messages]);
+  }, [settings, insights, nickname, messages, todayEntries]);
 
   // Track if we've waited for insights to load
   const [insightsReady, setInsightsReady] = useState(false);
@@ -309,6 +325,14 @@ export function UnifiedChat() {
         { role: 'assistant', content: result.message },
       ]);
 
+      // Build display message: acknowledgment + coaching (if present)
+      const buildDisplayMessage = (ack: string, coaching?: { message: string }) => {
+        if (coaching?.message) {
+          return `${ack}\n\n${coaching.message}`;
+        }
+        return ack;
+      };
+
       // Handle food correction intent
       if (result.intent === 'correct_food' && result.foodAnalysis && result.correctsPreviousEntry) {
         const ctx = context; // context from getContext() above
@@ -332,7 +356,7 @@ export function UnifiedChat() {
 
         updateMessage(loadingSyncId, {
           isLoading: false,
-          content: result.message,
+          content: buildDisplayMessage(result.acknowledgment || result.message, result.coaching),
         });
 
         // Set pending food for confirmation (the corrected entry)
@@ -350,7 +374,7 @@ export function UnifiedChat() {
       else if (result.intent === 'log_food' && result.foodAnalysis) {
         updateMessage(loadingSyncId, {
           isLoading: false,
-          content: result.message,
+          content: buildDisplayMessage(result.acknowledgment || result.message, result.coaching),
         });
 
         // Set pending food for confirmation
@@ -365,11 +389,17 @@ export function UnifiedChat() {
         }
       }
       // Handle menu analysis
-      else if (result.intent === 'analyze_menu' && result.menuRecommendations) {
-        const menuMessage = formatMenuRecommendations(result.message, result.menuRecommendations);
+      else if (result.intent === 'analyze_menu' && result.menuPicks) {
+        const menuMessage = formatMenuRecommendations(
+          result.acknowledgment || result.message,
+          result.menuPicks.map(p => ({ name: p.name, protein: p.protein, reason: p.why }))
+        );
+        const fullMessage = result.coaching?.message
+          ? `${menuMessage}\n\n${result.coaching.message}`
+          : menuMessage;
         updateMessage(loadingSyncId, {
           isLoading: false,
-          content: menuMessage,
+          content: fullMessage,
         });
 
         if (result.quickReplies) {

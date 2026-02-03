@@ -1,3 +1,5 @@
+export type FoodCategory = 'meat' | 'dairy' | 'seafood' | 'plant' | 'eggs' | 'other';
+
 export interface FoodEntry {
   id?: number;
   syncId?: string;           // UUID for sync - unique across all devices (set on persist)
@@ -7,6 +9,7 @@ export interface FoodEntry {
   protein: number;           // grams
   calories?: number;         // kcal
   confidence: 'high' | 'medium' | 'low';
+  category?: FoodCategory;   // Food category for variety tracking
   imageData?: string;        // base64 encoded image for photo entries
   consumedAt?: Date;         // When the food was consumed (for time tracking)
   createdAt: Date;

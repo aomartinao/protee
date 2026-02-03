@@ -140,6 +140,151 @@ export function calculateMPSHits<T extends { protein: number; consumedAt?: Date;
   return mpsHits;
 }
 
+/**
+ * Enhanced MPS analysis for coaching context
+ */
+export interface MPSAnalysisResult {
+  hitsToday: number;
+  minutesSinceLastHit: number | null;
+  lastHitProtein: number | null;
+  nearMiss?: {
+    type: 'timing' | 'protein' | 'both';
+    actual: {
+      protein?: number;
+      minutesSinceLast?: number;
+    };
+  };
+}
+
+export function calculateMPSAnalysis<T extends { protein: number; consumedAt?: Date; createdAt: Date }>(
+  entries: T[],
+  currentTime: Date = new Date()
+): MPSAnalysisResult {
+  const MIN_PROTEIN = 25;
+  const MIN_GAP_MS = 3 * 60 * 60 * 1000; // 3 hours
+
+  // Sort entries by time
+  const sortedEntries = [...entries].sort((a, b) => {
+    const timeA = (a.consumedAt || a.createdAt).getTime();
+    const timeB = (b.consumedAt || b.createdAt).getTime();
+    return timeA - timeB;
+  });
+
+  const mpsHits: { time: Date; protein: number }[] = [];
+  let lastHitTime: number | null = null;
+
+  for (const entry of sortedEntries) {
+    const entryTime = (entry.consumedAt || entry.createdAt).getTime();
+
+    if (entry.protein >= MIN_PROTEIN) {
+      if (lastHitTime === null || entryTime - lastHitTime >= MIN_GAP_MS) {
+        mpsHits.push({ time: new Date(entryTime), protein: entry.protein });
+        lastHitTime = entryTime;
+      }
+    }
+  }
+
+  const lastHit = mpsHits[mpsHits.length - 1];
+  const minutesSinceLastHit = lastHit
+    ? Math.floor((currentTime.getTime() - lastHit.time.getTime()) / (60 * 1000))
+    : null;
+
+  // Check for near-miss in the most recent entry
+  const lastEntry = sortedEntries[sortedEntries.length - 1];
+  let nearMiss: MPSAnalysisResult['nearMiss'];
+
+  if (lastEntry) {
+    const lastEntryTime = (lastEntry.consumedAt || lastEntry.createdAt).getTime();
+    const timeSincePrevHit = lastHit ? lastEntryTime - lastHit.time.getTime() : null;
+    const minutesSincePrevHit = timeSincePrevHit ? Math.floor(timeSincePrevHit / (60 * 1000)) : null;
+
+    const isProteinNearMiss = lastEntry.protein >= 20 && lastEntry.protein < 25;
+    const isTimingNearMiss = minutesSincePrevHit !== null &&
+      minutesSincePrevHit < 180 && minutesSincePrevHit >= 120; // 2-3 hours
+
+    if (isProteinNearMiss && isTimingNearMiss) {
+      nearMiss = {
+        type: 'both',
+        actual: { protein: lastEntry.protein, minutesSinceLast: minutesSincePrevHit! },
+      };
+    } else if (isTimingNearMiss && lastEntry.protein >= 25) {
+      nearMiss = {
+        type: 'timing',
+        actual: { minutesSinceLast: minutesSincePrevHit! },
+      };
+    } else if (isProteinNearMiss) {
+      nearMiss = {
+        type: 'protein',
+        actual: { protein: lastEntry.protein },
+      };
+    }
+  }
+
+  return {
+    hitsToday: mpsHits.length,
+    minutesSinceLastHit,
+    lastHitProtein: lastHit?.protein ?? null,
+    nearMiss,
+  };
+}
+
+/**
+ * Protein breakdown by food category
+ */
+export type FoodCategory = 'meat' | 'dairy' | 'seafood' | 'plant' | 'eggs' | 'other';
+
+export interface CategoryBreakdown {
+  meat: number;
+  dairy: number;
+  seafood: number;
+  plant: number;
+  eggs: number;
+  other: number;
+}
+
+// Keywords for auto-categorization (when category not provided by AI)
+const CATEGORY_KEYWORDS: Record<FoodCategory, string[]> = {
+  meat: ['chicken', 'beef', 'pork', 'steak', 'lamb', 'turkey', 'bacon', 'ham', 'sausage', 'meat', 'burger', 'ribeye', 'sirloin', 'tenderloin', 'brisket', 'ribs'],
+  dairy: ['milk', 'cheese', 'yogurt', 'cottage', 'cream', 'whey', 'casein', 'skyr', 'kefir', 'quark'],
+  seafood: ['fish', 'salmon', 'tuna', 'shrimp', 'cod', 'tilapia', 'crab', 'lobster', 'seafood', 'sushi', 'prawns', 'mackerel', 'sardine', 'anchov'],
+  plant: ['tofu', 'tempeh', 'lentil', 'bean', 'chickpea', 'edamame', 'seitan', 'quinoa', 'nuts', 'pea protein', 'soy'],
+  eggs: ['egg', 'omelet', 'omelette', 'frittata', 'quiche'],
+  other: [],
+};
+
+export function categorizeFoodName(foodName: string): FoodCategory {
+  const lower = foodName.toLowerCase();
+
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS) as [FoodCategory, string[]][]) {
+    if (category === 'other') continue;
+    if (keywords.some((kw) => lower.includes(kw))) {
+      return category;
+    }
+  }
+
+  return 'other';
+}
+
+export function calculateCategoryBreakdown<T extends { protein: number; foodName: string; category?: FoodCategory }>(
+  entries: T[]
+): CategoryBreakdown {
+  const breakdown: CategoryBreakdown = {
+    meat: 0,
+    dairy: 0,
+    seafood: 0,
+    plant: 0,
+    eggs: 0,
+    other: 0,
+  };
+
+  for (const entry of entries) {
+    const category = entry.category || categorizeFoodName(entry.foodName);
+    breakdown[category] += entry.protein;
+  }
+
+  return breakdown;
+}
+
 // Haptic feedback types for different interactions
 export type HapticType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error';
 
