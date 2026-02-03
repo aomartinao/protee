@@ -468,6 +468,32 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
 
     // Handle food logging
     if (parsed.intent === 'log_food' && parsed.food) {
+      // Check if this is actually a failed food detection (AI returning "no food" as log_food)
+      const foodName = (parsed.food.name || '').toLowerCase();
+      const isNoFood = foodName.includes('no food') ||
+                       foodName.includes('unknown') ||
+                       foodName.includes('unable') ||
+                       foodName.includes('not provided') ||
+                       (parsed.food.protein === 0 && parsed.food.confidence === 'low');
+
+      if (isNoFood) {
+        // Convert to a helpful message instead of showing a 0g food card
+        const reasoning = parsed.reasoning || parsed.acknowledgment || '';
+        // Check if the reasoning mentions it's a question
+        if (reasoning.toLowerCase().includes('question') ||
+            reasoning.toLowerCase().includes('asking for information')) {
+          return {
+            intent: 'question' as MessageIntent,
+            message: "I can help with nutrition questions! But I'm primarily designed to log food. Try asking in a different way, or describe what you ate.",
+            quickReplies: ['What foods are high in protein?', 'How much protein do I need?'],
+          };
+        }
+        return {
+          intent: 'other',
+          message: reasoning || "I couldn't identify a food item. Try describing what you ate more specifically.",
+        };
+      }
+
       // Use reasoning for display, fallback to acknowledgment
       const displayMessage = parsed.reasoning || parsed.acknowledgment || 'Logged!';
       return {
