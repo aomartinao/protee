@@ -151,6 +151,15 @@ export async function hardDeleteFoodEntry(id: number): Promise<void> {
   return db.foodEntries.delete(id);
 }
 
+export async function restoreFoodEntry(id: number): Promise<void> {
+  // Restore a soft-deleted entry by clearing deletedAt
+  await db.foodEntries.update(id, {
+    deletedAt: undefined,
+    updatedAt: new Date(),
+    syncStatus: 'pending' as const,
+  });
+}
+
 export async function updateFoodEntry(id: number, updates: Partial<FoodEntry>): Promise<number> {
   // Mark entry as pending when updated (needs to sync again)
   const updatesWithSync = {

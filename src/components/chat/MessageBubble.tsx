@@ -59,6 +59,7 @@ export function MessageBubble({
               <img
                 src={message.imageData}
                 alt="Food"
+                loading="lazy"
                 className="max-w-full block"
               />
             )}

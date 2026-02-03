@@ -139,3 +139,23 @@ export function calculateMPSHits<T extends { protein: number; consumedAt?: Date;
 
   return mpsHits;
 }
+
+// Haptic feedback types for different interactions
+export type HapticType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error';
+
+// Trigger haptic feedback (Android vibration, iOS currently unsupported in PWAs)
+export function triggerHaptic(type: HapticType = 'light'): void {
+  // Vibration patterns in ms for different feedback types
+  const patterns: Record<HapticType, number | number[]> = {
+    light: 10,
+    medium: 25,
+    heavy: 50,
+    success: [10, 50, 10],
+    warning: [25, 50, 25],
+    error: [50, 100, 50],
+  };
+
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(patterns[type]);
+  }
+}

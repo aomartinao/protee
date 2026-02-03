@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Camera, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/store/useStore';
-import { compressImage } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { compressImage, cn, triggerHaptic } from '@/lib/utils';
 
 const LONG_PRESS_DURATION = 400; // ms to trigger long press
 const OPTION_DISTANCE = 70; // distance from center to options
@@ -72,10 +71,7 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
     longPressTimerRef.current = setTimeout(() => {
       isLongPressRef.current = true;
       setIsExpanded(true);
-      // Haptic feedback if available
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
+      triggerHaptic('medium');
     }, LONG_PRESS_DURATION);
   }, []);
 

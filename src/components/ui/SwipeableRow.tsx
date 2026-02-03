@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useId, type ReactNode } from 'react';
 import { Trash2, Edit2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, triggerHaptic } from '@/lib/utils';
 import { useSwipeContext } from '@/context/SwipeContext';
 import {
   Dialog,
@@ -145,7 +145,8 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
 
     // Full swipe detection (swipe far + fast enough)
     if (currentTranslate < -FULL_SWIPE_THRESHOLD || (velocity < -0.5 && currentTranslate < -ACTION_WIDTH / 2)) {
-      // Full swipe - trigger delete
+      // Full swipe - trigger delete with haptic feedback
+      triggerHaptic('warning');
       if (onDelete) {
         setShowDeleteDialog(true);
       }
@@ -203,6 +204,7 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
   const handleConfirmDelete = useCallback(() => {
     setShowDeleteDialog(false);
     if (onDelete) {
+      triggerHaptic('error');
       setIsAnimating(true);
       setTranslateX(-window.innerWidth);
       setTimeout(() => {

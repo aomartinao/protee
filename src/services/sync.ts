@@ -31,6 +31,14 @@ import {
 } from '@/db';
 import type { FoodEntry, UserSettings, ChatMessage, DailyGoal } from '@/types';
 
+// Debug logging - only in development
+const isDev = import.meta.env.DEV;
+const syncDebug = (...args: unknown[]) => {
+  if (isDev) {
+    console.log('[Sync]', ...args);
+  }
+};
+
 // Sync result interface
 export interface SyncResult {
   success: boolean;
@@ -128,7 +136,7 @@ function toDbEntry(entry: FoodEntry, userId: string): Omit<DbFoodEntry, 'id'> {
   const updatedAt = toISOString(entry.updatedAt || entry.createdAt);
   const deletedAt = entry.deletedAt ? toISOString(entry.deletedAt) : null;
 
-  console.log('[Sync] toDbEntry:', {
+  syncDebug('toDbEntry:', {
     syncId,
     foodName: entry.foodName,
     createdAt,
@@ -182,7 +190,7 @@ async function pushToCloud(userId: string, lastPushTime: Date | null): Promise<{
   try {
     // Get all local entries (we need to check each one)
     const localEntries = await getAllEntriesForSync();
-    console.log('[Sync] Push: Found', localEntries.length, 'local entries, lastPushTime:', lastPushTime);
+    syncDebug('Push: Found', localEntries.length, 'local entries, lastPushTime:', lastPushTime);
 
     // Filter to entries that need pushing (modified after last push)
     // Entries without updatedAt are treated as needing push
@@ -195,7 +203,7 @@ async function pushToCloud(userId: string, lastPushTime: Date | null): Promise<{
         })
       : localEntries;
 
-    console.log('[Sync] Push: Pushing', entriesToPush.length, 'entries');
+    syncDebug('Push: Pushing', entriesToPush.length, 'entries');
 
     if (entriesToPush.length === 0) {
       return { success: true, count: 0 };
@@ -208,7 +216,7 @@ async function pushToCloud(userId: string, lastPushTime: Date | null): Promise<{
     for (const entry of entriesToPush) {
       try {
         const dbEntry = toDbEntry(entry, userId);
-        console.log('[Sync] Push: Upserting entry to Supabase:', dbEntry.sync_id, dbEntry.food_name);
+        syncDebug('Push: Upserting entry to Supabase:', dbEntry.sync_id, dbEntry.food_name);
 
         const { data, error } = await supabase
           .from('food_entries')
@@ -225,7 +233,7 @@ async function pushToCloud(userId: string, lastPushTime: Date | null): Promise<{
             await markEntryFailed(entry.syncId);
           }
         } else {
-          console.log('[Sync] Push: Successfully upserted entry:', entry.syncId, 'response:', data);
+          syncDebug('Push: Successfully upserted entry:', entry.syncId, 'response:', data);
           pushedCount++;
           // Mark entry as synced
           if (entry.syncId) {
@@ -255,7 +263,7 @@ async function pushToCloud(userId: string, lastPushTime: Date | null): Promise<{
     if (verifyError) {
       console.error('[Sync] Push verification failed:', verifyError);
     } else {
-      console.log('[Sync] Push verification - entries in cloud:', cloudData?.length, cloudData?.map(e => ({ syncId: e.sync_id, name: e.food_name })));
+      syncDebug('Push verification - entries in cloud:', cloudData?.length, cloudData?.map(e => ({ syncId: e.sync_id, name: e.food_name })));
     }
 
     return { success: true, count: pushedCount };
@@ -279,7 +287,7 @@ async function pullFromCloud(userId: string, lastPullTime: Date | null): Promise
   }
 
   try {
-    console.log('[Sync] Pull: Fetching entries for user:', userId, 'lastPullTime:', lastPullTime);
+    syncDebug('Pull: Fetching entries for user:', userId, 'lastPullTime:', lastPullTime);
 
     // First, check total count in cloud for this user (without timestamp filter)
     const { count: totalCount, error: countError } = await supabase
@@ -290,7 +298,7 @@ async function pullFromCloud(userId: string, lastPullTime: Date | null): Promise
     if (countError) {
       console.error('[Sync] Pull: Error getting total count:', countError);
     } else {
-      console.log('[Sync] Pull: Total entries in cloud for user:', totalCount);
+      syncDebug('Pull: Total entries in cloud for user:', totalCount);
     }
 
     // Build query - get entries modified since last pull
@@ -316,7 +324,7 @@ async function pullFromCloud(userId: string, lastPullTime: Date | null): Promise
       return { success: false, count: 0, error: error.message };
     }
 
-    console.log('[Sync] Pull: Received', cloudEntries?.length || 0, 'entries from cloud');
+    syncDebug('Pull: Received', cloudEntries?.length || 0, 'entries from cloud');
 
     if (!cloudEntries || cloudEntries.length === 0) {
       return { success: true, count: 0 };
@@ -339,7 +347,7 @@ async function pullFromCloud(userId: string, lastPullTime: Date | null): Promise
       }
 
       if (!localEntry || cloudUpdatedAt > localUpdatedAt) {
-        console.log('[Sync] Pull: Upserting entry', cloudEntry.sync_id, 'local exists:', !!localEntry);
+        syncDebug('Pull: Upserting entry', cloudEntry.sync_id, 'local exists:', !!localEntry);
         const entryData = fromDbEntry(cloudEntry);
         await upsertEntryBySyncId({
           ...entryData,
@@ -349,7 +357,7 @@ async function pullFromCloud(userId: string, lastPullTime: Date | null): Promise
       }
     }
 
-    console.log('[Sync] Pull: Upserted', pulledCount, 'entries');
+    syncDebug('Pull: Upserted', pulledCount, 'entries');
     return { success: true, count: pulledCount };
   } catch (err) {
     console.error('[Sync] Pull exception:', err);
@@ -415,7 +423,7 @@ async function pushChatMessagesToCloud(
       })
       .slice(-200);
 
-    console.log('[Sync] Chat Push: Pushing', messagesToPush.length, 'messages');
+    syncDebug('Chat Push: Pushing', messagesToPush.length, 'messages');
 
     if (messagesToPush.length === 0) {
       return { success: true, count: 0 };
@@ -486,7 +494,7 @@ async function pullChatMessagesFromCloud(
       return { success: false, count: 0, error: error.message };
     }
 
-    console.log('[Sync] Chat Pull: Received', cloudMessages?.length || 0, 'messages');
+    syncDebug('Chat Pull: Received', cloudMessages?.length || 0, 'messages');
 
     if (!cloudMessages || cloudMessages.length === 0) {
       return { success: true, count: 0 };
@@ -516,7 +524,7 @@ async function pullChatMessagesFromCloud(
       }
     }
 
-    console.log('[Sync] Chat Pull: Upserted', pulledCount, 'messages');
+    syncDebug('Chat Pull: Upserted', pulledCount, 'messages');
     return { success: true, count: pulledCount };
   } catch (err) {
     console.error('[Sync] Chat Pull exception:', err);
@@ -602,7 +610,7 @@ async function pushDailyGoalsToCloud(
       return updatedAt > lastPushTime;
     });
 
-    console.log('[Sync] Goals Push: Pushing', goalsToPush.length, 'goals');
+    syncDebug('Goals Push: Pushing', goalsToPush.length, 'goals');
 
     if (goalsToPush.length === 0) {
       return { success: true, count: 0 };
@@ -670,7 +678,7 @@ async function pullDailyGoalsFromCloud(
       return { success: false, count: 0, error: error.message };
     }
 
-    console.log('[Sync] Goals Pull: Received', cloudGoals?.length || 0, 'goals');
+    syncDebug('Goals Pull: Received', cloudGoals?.length || 0, 'goals');
 
     if (!cloudGoals || cloudGoals.length === 0) {
       return { success: true, count: 0 };
@@ -699,7 +707,7 @@ async function pullDailyGoalsFromCloud(
       }
     }
 
-    console.log('[Sync] Goals Pull: Upserted', pulledCount, 'goals');
+    syncDebug('Goals Pull: Upserted', pulledCount, 'goals');
     return { success: true, count: pulledCount };
   } catch (err) {
     console.error('[Sync] Goals Pull exception:', err);
@@ -745,11 +753,11 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
   try {
     // Get local settings
     const localSettings = await getUserSettings();
-    console.log('[Sync] Local settings before sync:', localSettings);
+    syncDebug('Local settings before sync:', localSettings);
 
     // Pull from cloud
     const cloudSettings = await pullSettingsFromCloud(userId);
-    console.log('[Sync] Cloud settings:', cloudSettings);
+    syncDebug('Cloud settings:', cloudSettings);
 
     if (cloudSettings) {
       // Merge strategy:
@@ -774,13 +782,13 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
 
       // Save merged settings locally
       await saveUserSettings(mergedSettings);
-      console.log('[Sync] Settings merged and saved locally:', mergedSettings);
+      syncDebug('Settings merged and saved locally:', mergedSettings);
 
       // Push merged settings to cloud (ensures cloud has the combined state)
       await pushSettingsToCloud(userId, mergedSettings);
-      console.log('[Sync] Merged settings pushed to cloud');
+      syncDebug('Merged settings pushed to cloud');
     } else {
-      console.log('[Sync] No cloud settings found, pushing local to cloud');
+      syncDebug('No cloud settings found, pushing local to cloud');
       // No cloud settings, push local to establish them
       if (localSettings) {
         await pushSettingsToCloud(userId, localSettings);
@@ -802,10 +810,10 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
  * Uses timestamps to minimize data transfer
  */
 export async function fullSync(userId: string): Promise<SyncResult> {
-  console.log('[Sync] Starting full sync for user:', userId);
+  syncDebug('Starting full sync for user:', userId);
 
   if (!isSupabaseConfigured()) {
-    console.log('[Sync] Supabase not configured');
+    syncDebug('Supabase not configured');
     return { success: false, pushed: 0, pulled: 0, error: 'Supabase not configured' };
   }
 
@@ -816,20 +824,20 @@ export async function fullSync(userId: string): Promise<SyncResult> {
     const lastPushTime = lastPushTimeStr ? new Date(lastPushTimeStr) : null;
     const lastPullTime = lastPullTimeStr ? new Date(lastPullTimeStr) : null;
 
-    console.log('[Sync] Last push time:', lastPushTime, 'Last pull time:', lastPullTime);
+    syncDebug('Last push time:', lastPushTime, 'Last pull time:', lastPullTime);
 
     const syncStartTime = new Date();
 
     // Push first (send local changes)
     const pushResult = await pushToCloud(userId, lastPushTime);
-    console.log('[Sync] Push result:', pushResult);
+    syncDebug('Push result:', pushResult);
     if (!pushResult.success) {
       return { success: false, pushed: 0, pulled: 0, error: pushResult.error };
     }
 
     // Then pull (receive remote changes)
     const pullResult = await pullFromCloud(userId, lastPullTime);
-    console.log('[Sync] Pull result:', pullResult);
+    syncDebug('Pull result:', pullResult);
     if (!pullResult.success) {
       return { success: false, pushed: pushResult.count, pulled: 0, error: pullResult.error };
     }
@@ -848,7 +856,7 @@ export async function fullSync(userId: string): Promise<SyncResult> {
     await setSyncMeta('lastPullTime', syncStartTime.toISOString());
     await setSyncMeta('lastSyncTime', syncStartTime.toISOString());
 
-    console.log('[Sync] Sync complete. Food pushed:', pushResult.count, 'pulled:', pullResult.count,
+    syncDebug('Sync complete. Food pushed:', pushResult.count, 'pulled:', pullResult.count,
       'Settings synced:', settingsSynced, 'Messages pushed:', chatResult.pushed, 'pulled:', chatResult.pulled,
       'Goals pushed:', goalsResult.pushed, 'pulled:', goalsResult.pulled);
 
@@ -913,7 +921,7 @@ export async function pushSettingsToCloud(userId: string, settings: UserSettings
       updated_at: new Date().toISOString(),
     };
 
-    console.log('[Sync] Pushing settings to cloud:', dbSettings);
+    syncDebug('Pushing settings to cloud:', dbSettings);
 
     const { error } = await supabase
       .from('user_settings')
@@ -949,7 +957,7 @@ export async function pullSettingsFromCloud(userId: string): Promise<UserSetting
     }
     if (!data) return null;
 
-    console.log('[Sync] Pulled settings from cloud:', data);
+    syncDebug('Pulled settings from cloud:', data);
 
     return {
       defaultGoal: data.default_goal,
@@ -982,7 +990,7 @@ export async function clearSyncMeta(): Promise<void> {
 export async function debugCloudEntries(userId: string): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) {
-    console.log('[Sync Debug] Supabase not configured');
+    syncDebug('Debug: Supabase not configured');
     return;
   }
 
@@ -994,8 +1002,8 @@ export async function debugCloudEntries(userId: string): Promise<void> {
   if (error) {
     console.error('[Sync Debug] Error fetching cloud entries:', error);
   } else {
-    console.log('[Sync Debug] Cloud entries for user:', userId);
-    console.log('[Sync Debug] Total count:', data?.length);
+    syncDebug('Debug: Cloud entries for user:', userId);
+    syncDebug('Debug: Total count:', data?.length);
     data?.forEach((entry, i) => {
       console.log(`[Sync Debug] Entry ${i + 1}:`, {
         id: entry.id,
@@ -1014,8 +1022,8 @@ export async function debugCloudEntries(userId: string): Promise<void> {
  */
 export async function debugLocalEntries(): Promise<void> {
   const entries = await getAllEntriesForSync();
-  console.log('[Sync Debug] Local entries:');
-  console.log('[Sync Debug] Total count:', entries.length);
+  syncDebug('Debug: Local entries:');
+  syncDebug('Debug: Total count:', entries.length);
   entries.forEach((entry, i) => {
     console.log(`[Sync Debug] Entry ${i + 1}:`, {
       id: entry.id,

@@ -6,7 +6,7 @@ import { FoodCard } from '@/components/chat/FoodCard';
 import { LoggedFoodCard } from '@/components/chat/LoggedFoodCard';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { QuickLogShortcuts } from '@/components/chat/QuickLogShortcuts';
-import { FoodEntryEditDialog } from '@/components/chat/FoodEntryEditDialog';
+import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { ToastAction } from '@/components/ui/toast';
@@ -18,7 +18,7 @@ import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
 import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange, hardDeleteFoodEntry, type FrequentMeal } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
-import { getToday, calculateMPSHits } from '@/lib/utils';
+import { getToday, calculateMPSHits, triggerHaptic } from '@/lib/utils';
 import { refineAnalysis } from '@/services/ai/client';
 import {
   processUnifiedMessage,
@@ -443,6 +443,7 @@ export function UnifiedChat() {
     };
 
     const entryId = await addFoodEntry(foodEntry);
+    triggerHaptic('success');
 
     // Store full food entry on the message (for display in chat)
     updateMessage(messageSyncId, {

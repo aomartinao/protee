@@ -1,14 +1,17 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   db,
   getEntriesForDate,
   getEntriesForDateRange,
   deleteFoodEntry,
+  restoreFoodEntry,
   saveUserSettings,
   getAllDailyGoals,
   getDailyGoal,
 } from '@/db';
+import { toast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { useStore } from '@/store/useStore';
 import { useAuthStore, triggerSync } from '@/store/useAuthStore';
 import { getToday, getDateRange, formatDate } from '@/lib/utils';
@@ -37,7 +40,27 @@ export function useRecentEntries(days: number = 30) {
 
 export function useDeleteEntry() {
   return useCallback(async (id: number) => {
+    // Get the entry name before deleting for the toast message
+    const entry = await db.foodEntries.get(id);
+    const foodName = entry?.foodName;
+
+    // Delete the entry (soft delete)
     await deleteFoodEntry(id);
+
+    // Show undo toast
+    toast({
+      description: foodName ? `"${foodName}" deleted` : 'Entry deleted',
+      action: React.createElement(ToastAction, {
+        altText: 'Undo',
+        onClick: async () => {
+          // Restore the entry
+          await restoreFoodEntry(id);
+          triggerSync();
+        },
+      }, 'Undo'),
+      duration: 5000,
+    });
+
     // Trigger sync after deletion
     triggerSync();
   }, []);

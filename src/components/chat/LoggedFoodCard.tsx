@@ -39,6 +39,7 @@ export function LoggedFoodCard({
           <img
             src={entry.imageData}
             alt={entry.foodName}
+            loading="lazy"
             className={cn(
               "w-12 h-12 rounded-lg object-cover flex-shrink-0",
               isCancelled && "grayscale"

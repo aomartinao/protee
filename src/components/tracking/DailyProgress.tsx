@@ -324,14 +324,16 @@ export function DailyProgress({
             </div>
           )}
 
-          {/* Divider */}
-          <div className="h-10 w-px bg-border" />
-
-          {/* Entries count */}
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold text-foreground">{entries.length}</span>
-            <span className="text-xs text-muted-foreground">entries</span>
-          </div>
+          {/* Divider and Entries count - only shown when MPS is enabled */}
+          {mpsTrackingEnabled && (
+            <>
+              <div className="h-10 w-px bg-border" />
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold text-foreground">{entries.length}</span>
+                <span className="text-xs text-muted-foreground">entries</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Entries Section - Scrollable */}
@@ -354,6 +356,7 @@ export function DailyProgress({
                       <img
                         src={entry.imageData}
                         alt={entry.foodName}
+                        loading="lazy"
                         className="w-10 h-10 rounded-lg object-cover"
                       />
                     ) : (
@@ -407,6 +410,8 @@ export function DailyProgress({
         </button>
       </div>
 
+      {/* Spacer for FAB overlap on Today view */}
+      {isToday && <div className="h-20 shrink-0" />}
     </div>
   );
 }
