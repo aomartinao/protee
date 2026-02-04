@@ -57,7 +57,7 @@ export function useDeleteEntry() {
           await restoreFoodEntry(id);
           triggerSync();
         },
-      }, 'Undo') as ToastActionElement,
+      }, 'Undo') as unknown as ToastActionElement,
       duration: 5000,
     });
 
