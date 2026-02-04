@@ -1,13 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://paifkqqqwhtqhyxgibvl.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl) {
+  console.error('Missing VITE_SUPABASE_URL');
+  process.exit(1);
+}
+
+if (!supabaseKey) {
+  console.error('Missing VITE_SUPABASE_ANON_KEY');
+  process.exit(1);
+}
 
 async function clearDatabase() {
-  if (!supabaseKey) {
-    console.error('Missing VITE_SUPABASE_ANON_KEY');
-    process.exit(1);
-  }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
   
