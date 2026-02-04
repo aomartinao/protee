@@ -57,11 +57,16 @@
 
   html, body, #root {
     height: 100%;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100vw;
   }
 
-  /* Prevent pull-to-refresh on mobile */
+  /* Prevent pull-to-refresh and horizontal scroll on mobile */
   body {
     overscroll-behavior-y: contain;
+    overscroll-behavior-x: none;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Safe area insets for notched devices */
