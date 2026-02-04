@@ -43,7 +43,7 @@ export function MessageBubble({
     >
       <div
         className={cn(
-          'max-w-[85%]',
+          'max-w-[85%] min-w-0',
           isUser
             ? message.imageData
               ? 'rounded-2xl rounded-br-md overflow-hidden bg-primary text-primary-foreground'
@@ -64,7 +64,7 @@ export function MessageBubble({
               />
             )}
             {message.content && (
-              <div className={cn('text-sm', message.imageData && isUser && 'px-4 py-2')}>
+              <div className={cn('text-sm min-w-0', message.imageData && isUser && 'px-4 py-2')}>
                 <MarkdownText>{message.content}</MarkdownText>
               </div>
             )}
