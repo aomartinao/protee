@@ -11,7 +11,7 @@ import {
   getDailyGoal,
 } from '@/db';
 import { toast } from '@/hooks/use-toast';
-import { ToastAction } from '@/components/ui/toast';
+import { ToastAction, type ToastActionElement } from '@/components/ui/toast';
 import { useStore } from '@/store/useStore';
 import { useAuthStore, triggerSync } from '@/store/useAuthStore';
 import { getToday, getDateRange, formatDate } from '@/lib/utils';
@@ -57,7 +57,7 @@ export function useDeleteEntry() {
           await restoreFoodEntry(id);
           triggerSync();
         },
-      }, 'Undo') as React.ReactElement,
+      }, 'Undo') as ToastActionElement,
       duration: 5000,
     });
 
