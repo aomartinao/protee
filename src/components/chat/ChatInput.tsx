@@ -36,8 +36,8 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
   };
 
   return (
-    <div className="border-t bg-card p-3 safe-area-inset-bottom">
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+    <div className="border-t bg-card p-3 safe-area-inset-bottom overflow-hidden">
+      <form onSubmit={handleSubmit} className="flex items-center gap-2 min-w-0">
         {/* Hidden file inputs */}
         <input
           ref={cameraInputRef}
@@ -83,7 +83,7 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
         </div>
 
         {/* Text input */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-w-0">
           <input
             type="text"
             value={text}

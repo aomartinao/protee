@@ -12,7 +12,7 @@ export function MarkdownText({ children, className }: MarkdownTextProps) {
   }, [children]);
 
   return (
-    <span className={className} dangerouslySetInnerHTML={{ __html: rendered }} />
+    <span className={`break-words ${className || ''}`} dangerouslySetInnerHTML={{ __html: rendered }} />
   );
 }
 
