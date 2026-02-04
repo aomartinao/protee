@@ -29,7 +29,7 @@ export function LoggedFoodCard({
 
   return (
     <div className={cn(
-      'bg-card rounded-xl p-3 shadow-sm border border-border/50',
+      'bg-card rounded-xl p-3 shadow-sm border border-border/50 overflow-hidden',
       isCancelled && 'opacity-50',
       className
     )}>

@@ -164,7 +164,7 @@ export function FoodCard({
   }
 
   return (
-    <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50">
+    <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50 overflow-hidden">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">

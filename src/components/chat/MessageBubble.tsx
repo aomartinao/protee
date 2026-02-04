@@ -61,7 +61,7 @@ export function MessageBubble({
           <>
             {hasImages && (
               <div className={cn(
-                'flex gap-1',
+                'flex gap-1 overflow-hidden',
                 messageImages.length > 1 ? 'flex-wrap' : ''
               )}>
                 {messageImages.map((img, index) => (
@@ -71,12 +71,12 @@ export function MessageBubble({
                     alt={`Food ${index + 1}`}
                     loading="lazy"
                     className={cn(
-                      'block object-cover',
-                      messageImages.length === 1
-                        ? 'max-w-full'
-                        : messageImages.length === 2
+                      'block object-cover max-w-full',
+                      messageImages.length === 2
                         ? 'w-[calc(50%-2px)] aspect-square'
-                        : 'w-[calc(33.333%-2.67px)] aspect-square'
+                        : messageImages.length > 2
+                        ? 'w-[calc(33.333%-2.67px)] aspect-square'
+                        : ''
                     )}
                   />
                 ))}
