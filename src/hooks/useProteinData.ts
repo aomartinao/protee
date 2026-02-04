@@ -57,7 +57,7 @@ export function useDeleteEntry() {
           await restoreFoodEntry(id);
           triggerSync();
         },
-      }, 'Undo'),
+      }, 'Undo') as React.ReactElement,
       duration: 5000,
     });
 

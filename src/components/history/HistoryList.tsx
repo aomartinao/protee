@@ -25,7 +25,7 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
     setEditingEntry(entry);
   };
 
-  const handleSaveEdit = useCallback(async (entryId: number, updates: Partial<FoodEntry>) => {
+  const handleSaveEdit = useCallback(async (_entryId: number, updates: Partial<FoodEntry>) => {
     if (!onEdit || !editingEntry) return;
 
     // Merge updates with the original entry
