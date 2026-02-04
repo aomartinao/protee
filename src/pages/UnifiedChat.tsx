@@ -672,7 +672,7 @@ export function UnifiedChat() {
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {/* Compact progress bar */}
-      <div className="px-4 py-2 border-b bg-muted/30">
+      <div className="px-4 py-2 border-b bg-background sticky top-0 z-10 flex-shrink-0">
         <div className="flex items-center justify-between text-sm">
           <div>
             <span className="font-semibold text-primary">{insights.todayProtein}g</span>
