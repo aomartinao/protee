@@ -92,6 +92,9 @@ export function UnifiedChat() {
   // Edit dialog state
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
 
+  // Input focus state for showing quick log suggestions
+  const [showQuickLogSuggestions, setShowQuickLogSuggestions] = useState(false);
+
   // Load messages on mount
   useEffect(() => {
     loadMessages();
@@ -621,7 +624,16 @@ export function UnifiedChat() {
         },
       },
     });
+
+    // Hide suggestions after selecting
+    setShowQuickLogSuggestions(false);
   };
+
+  // Handle input focus change for quick log suggestions
+  const handleInputFocusChange = useCallback((focused: boolean, hasText: boolean) => {
+    // Show suggestions only when focused and input is empty
+    setShowQuickLogSuggestions(focused && !hasText);
+  }, []);
 
   // Handle edit click on logged food card
   const handleEditLoggedFood = (entry: FoodEntry) => {
@@ -781,8 +793,8 @@ export function UnifiedChat() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Log Shortcuts */}
-      {!pendingFood && !isProcessing && (
+      {/* Quick Log Shortcuts - shown when input is focused and empty */}
+      {!pendingFood && !isProcessing && showQuickLogSuggestions && (
         <QuickLogShortcuts
           onSelect={handleQuickLog}
           disabled={isProcessing}
@@ -793,6 +805,7 @@ export function UnifiedChat() {
       <ChatInput
         onSend={handleSend}
         disabled={isProcessing}
+        onFocusChange={handleInputFocusChange}
       />
 
       {/* Edit Dialog */}

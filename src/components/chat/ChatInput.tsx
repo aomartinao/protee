@@ -6,15 +6,35 @@ import { compressImage } from '@/lib/utils';
 interface ChatInputProps {
   onSend: (text: string, images: string[]) => void;
   disabled?: boolean;
+  onFocusChange?: (focused: boolean, hasText: boolean) => void;
 }
 
 const MAX_IMAGES = 4;
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, onFocusChange }: ChatInputProps) {
   const [text, setText] = useState('');
   const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const [isFocused, setIsFocused] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    onFocusChange?.(true, text.trim().length > 0);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    onFocusChange?.(false, text.trim().length > 0);
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newText = e.target.value;
+    setText(newText);
+    if (isFocused) {
+      onFocusChange?.(true, newText.trim().length > 0);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +140,9 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           <input
             type="text"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             placeholder={pendingImages.length > 0 ? "Add details (optional)..." : "Describe your meal..."}
             disabled={disabled}
             className="w-full h-10 px-4 rounded-full bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"

@@ -30,7 +30,7 @@ export function QuickLogShortcuts({ onSelect, disabled }: QuickLogShortcutsProps
   }
 
   return (
-    <div className="px-4 pb-2">
+    <div className="px-4 pb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
         <Clock className="h-3 w-3" />
         <span>Quick log</span>
