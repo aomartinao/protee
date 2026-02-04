@@ -21,7 +21,7 @@ export function Layout() {
   const disablePullToRefresh = location.pathname === '/coach' || location.pathname === '/chat' || location.pathname === '/advisor';
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className="flex flex-col h-full bg-background overflow-hidden">
       <Header />
       {disablePullToRefresh ? (
         <div className="flex-1 pb-24 overflow-hidden flex flex-col min-h-0">
