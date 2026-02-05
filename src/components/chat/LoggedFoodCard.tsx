@@ -74,7 +74,7 @@ export function LoggedFoodCard({
             </span>
             {isCancelled ? (
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full text-red-600 bg-red-50">
-                corrected
+                cancelled
               </span>
             ) : entry.confidence && (
               <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', confidenceColor)}>

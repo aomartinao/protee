@@ -642,7 +642,20 @@ export function UnifiedChat() {
 
   // Delete logged food entry
   const handleDeleteLoggedFood = async (syncId: string) => {
+    // Soft delete in database
     await deleteFoodEntryBySyncId(syncId);
+
+    // Update message's embedded foodEntry to show cancelled state
+    const message = messages.find(m => m.foodEntrySyncId === syncId);
+    if (message?.foodEntry) {
+      updateMessage(message.syncId, {
+        foodEntry: {
+          ...message.foodEntry,
+          deletedAt: new Date(),
+        },
+      });
+    }
+
     triggerSync();
   };
 
@@ -693,6 +706,7 @@ export function UnifiedChat() {
           const foodEntry = message.foodEntry ||
             (message.foodEntrySyncId ? entriesBySyncId.get(message.foodEntrySyncId) : undefined);
           const hasConfirmedFood = !!(foodEntry && message.foodEntrySyncId && !foodEntry.deletedAt);
+          const hasCancelledFood = !!(foodEntry && message.foodEntrySyncId && foodEntry.deletedAt);
           const isMPSHit = hasConfirmedFood && mpsHitSyncIds.has(message.foodEntrySyncId!);
           const entrySyncId = message.foodEntrySyncId;
 
@@ -738,6 +752,17 @@ export function UnifiedChat() {
                       isMPSHit={isMPSHit}
                     />
                   </SwipeableRow>
+                </div>
+              )}
+
+              {/* Render cancelled food card (non-interactive) */}
+              {hasCancelledFood && (
+                <div className="mt-2 mb-3">
+                  <LoggedFoodCard
+                    entry={foodEntry}
+                    showCalories={settings.calorieTrackingEnabled}
+                    isMPSHit={false}
+                  />
                 </div>
               )}
 

@@ -217,7 +217,7 @@ QUESTION indicators (use intent "question"):
 FOOD indicators (use intent "log_food"):
 - Describes something they ATE: "had chicken", "ate 2 eggs", "just finished a shake"
 - Contains food quantities: "200g", "2 eggs", "a bowl of"
-- Photo of food or nutrition label
+- **Photo of food or nutrition label — ALWAYS assume they just ate it and log immediately. Never ask "did you eat this?" or "planning to have this?" — just log it.**
 
 ⚠️ **NEVER return intent "log_food" for a question. If someone asks "What is protein?" that is NOT a food entry — it's a question. Return intent "question" with a helpful answer.**
 
@@ -294,16 +294,27 @@ Example questions and good answers:
 
 ### For intent: "analyze_menu"
 
+When user sends a **menu photo**, provide personalized recommendations based on:
+- How much protein they still need (${remaining}g remaining)
+- Time of day (lighter options late at night)
+- Their dietary preferences and restrictions
+- What they've already eaten today (variety)
+
 \`\`\`json
 {
   "intent": "analyze_menu",
   "acknowledgment": "Here are my picks:",
   "menuPicks": [
-    {"name": "8oz Ribeye", "protein": 58, "calories": 650, "why": "Hits your ${remaining}g goal"},
-    {"name": "Grilled Salmon", "protein": 45, "calories": 400, "why": "Lighter, good omega-3s"}
+    {"name": "8oz Ribeye", "protein": 58, "calories": 650, "why": "Gets you to your goal in one meal"},
+    {"name": "Grilled Salmon", "protein": 45, "calories": 400, "why": "Lighter option, great omega-3s"}
   ]
 }
 \`\`\`
+
+**Make recommendations specific to user's situation**, e.g.:
+- "You need 60g more — the ribeye gets you there"
+- "Since you've had a lot of meat today, the salmon adds variety"
+- "It's late, so the lighter fish won't disrupt sleep"
 
 ### For intent: "greeting"
 
@@ -367,7 +378,12 @@ ${restrictionsList ? `DIETARY: ${restrictionsList}` : ''}
 - Vary your reactions — don't always say "Got it!"
 - Keep it warm but brief
 - A little personality is good ("Ooh, steak!" or "Eggs again? Nothing wrong with that!")
-- When in doubt, sound like a supportive gym buddy, not a nutrition label`;
+- When in doubt, sound like a supportive gym buddy, not a nutrition label
+
+**AFTER logging food:**
+- Do NOT ask "What are you eating?" or "What's next?" — the user just told you
+- Do NOT repeat progress stats like "75g so far, 115g to go" — the UI header shows this already
+- Just acknowledge the meal with brief, positive coaching if applicable`;
 }
 
 export async function processUnifiedMessage(
@@ -623,7 +639,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
 
     return {
       intent: 'greeting',
-      message: `I see you've set up your profile${prefSummary ? ` (${prefSummary})` : ''} — I'll keep that in mind! What are you eating?`,
+      message: `I see you've set up your profile${prefSummary ? ` (${prefSummary})` : ''} — I'll keep that in mind!`,
       quickReplies: ['Log a meal', 'What should I eat?'],
     };
   }
@@ -695,7 +711,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
 
     return {
       intent: 'greeting',
-      message: `${name ? name + ', ' : ''}${remaining}g to go. What's the plan?`,
+      message: `${name ? name + ', y' : 'Y'}ou're a bit behind schedule. What's the plan?`,
       quickReplies: ['Suggest something', 'Log a meal', 'Analyze a menu'],
     };
   }
@@ -749,7 +765,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
   // Default
   return {
     intent: 'greeting',
-    message: `${insights.todayProtein}g so far, ${remaining}g to go. What are you eating?`,
+    message: `Ready when you are!`,
     quickReplies: ['Log a meal', 'Suggest something', 'Analyze a menu'],
   };
 }
