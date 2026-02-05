@@ -683,32 +683,38 @@ export function UnifiedChat() {
     );
   }
 
+  // Calculate ambient glow based on progress
+  const glowIntensity = Math.min(1, insights.percentComplete / 100);
+  const isComplete = insights.percentComplete >= 100;
+  const isPulsing = progressFeedback !== null;
+
+  // Glow color transitions: subtle amber → vibrant gold → green at 100%
+  // When pulsing (food just logged), boost the intensity significantly
+  const pulseBoost = isPulsing ? 0.25 : 0;
+  const glowColor = isComplete
+    ? `rgba(34, 197, 94, ${0.15 + glowIntensity * 0.2 + pulseBoost})` // green-500
+    : `rgba(245, 158, 11, ${0.08 + glowIntensity * 0.15 + pulseBoost})`; // amber-500
+
+  const glowSpread = isPulsing ? 80 : (isComplete ? 60 : 20 + glowIntensity * 40);
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* Compact progress bar */}
-      <div className="px-4 py-2 border-b bg-background flex-shrink-0">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-primary">{insights.todayProtein}g</span>
-            <span className="text-muted-foreground"> / {settings.defaultGoal}g</span>
-            {/* Progress feedback animation */}
-            {progressFeedback !== null && (
-              <span className="text-green-600 font-semibold text-xs animate-in fade-in slide-in-from-left-2 duration-300">
-                +{progressFeedback}g
-              </span>
-            )}
-          </div>
-          {insights.currentStreak > 0 && (
-            <span className="text-orange-500 text-xs">🔥 {insights.currentStreak}d</span>
-          )}
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative">
+      {/* Ambient edge glow */}
+      <div
+        className={`absolute inset-0 pointer-events-none z-10 transition-all ${isPulsing ? 'duration-300 animate-pulse' : 'duration-1000'}`}
+        style={{
+          boxShadow: `inset 0 0 ${glowSpread}px ${glowColor}`,
+        }}
+      />
+
+      {/* Progress feedback floating indicator */}
+      {progressFeedback !== null && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20">
+          <span className="text-green-600 font-bold text-lg animate-in fade-in zoom-in slide-in-from-bottom-2 duration-300 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
+            +{progressFeedback}g
+          </span>
         </div>
-        <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
-          <div
-            className={`h-full bg-primary rounded-full transition-all duration-500 ${progressFeedback !== null ? 'animate-pulse' : ''}`}
-            style={{ width: `${Math.min(100, insights.percentComplete)}%` }}
-          />
-        </div>
-      </div>
+      )}
 
       {/* Messages */}
       <div

@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { useUpdateAvailable } from '@/hooks/useUpdateAvailable';
+import { useProgressInsights } from '@/hooks/useProgressInsights';
+import { useSettings } from '@/hooks/useProteinData';
 import { clearAllChatMessages } from '@/db';
 import {
   AlertDialog,
@@ -32,6 +34,11 @@ export function Header() {
   const [advisorClearDialogOpen, setAdvisorClearDialogOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'current'>('idle');
+
+  // Progress data for Coach page
+  const isCoachPage = location.pathname === '/coach' || location.pathname === '/chat' || location.pathname === '/advisor';
+  const insights = useProgressInsights();
+  const { settings } = useSettings();
 
   const handleCheckForUpdates = async () => {
     setIsCheckingUpdate(true);
@@ -79,7 +86,6 @@ export function Header() {
   };
 
   const isSettingsPage = location.pathname === '/settings';
-  const isCoachPage = location.pathname === '/coach' || location.pathname === '/chat' || location.pathname === '/advisor';
   const isDashboardPage = location.pathname === '/';
 
   const handleClearChat = async () => {
@@ -214,7 +220,20 @@ export function Header() {
     <>
       <header className="sticky top-0 z-40 w-full bg-background safe-area-inset-top">
         <div className="flex h-14 items-center justify-between px-4">
-          {isDashboardPage ? renderDashboardTitle() : (
+          {isDashboardPage ? renderDashboardTitle() : isCoachPage ? (
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-semibold text-foreground">Coach</h1>
+              <div className="flex items-baseline gap-1 text-sm">
+                <span className={`font-semibold ${insights.percentComplete >= 100 ? 'text-green-600' : 'text-primary'}`}>
+                  {insights.todayProtein}g
+                </span>
+                <span className="text-muted-foreground">/ {settings.defaultGoal}g</span>
+                {insights.currentStreak > 0 && (
+                  <span className="ml-1 text-orange-500 text-xs">🔥{insights.currentStreak}</span>
+                )}
+              </div>
+            </div>
+          ) : (
             <h1 className="text-xl font-semibold text-foreground">{getTitle()}</h1>
           )}
           {renderHeaderAction()}
