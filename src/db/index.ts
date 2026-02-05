@@ -550,7 +550,7 @@ export async function resetFailedEntriesToPending(): Promise<number> {
   return failed.length;
 }
 
-export async function cleanupOldChatMessages(olderThanDays: number = 7): Promise<number> {
+export async function cleanupOldChatMessages(olderThanDays: number = 21): Promise<number> {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
   const cutoffISO = cutoffDate.toISOString();
