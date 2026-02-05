@@ -1,5 +1,40 @@
 export type FoodCategory = 'meat' | 'dairy' | 'seafood' | 'plant' | 'eggs' | 'other';
 
+// GRRROMODE: Sleep tracking
+export type SleepQuality = 'poor' | 'fair' | 'good' | 'great';
+
+export interface SleepEntry {
+  id?: number;
+  syncId?: string;           // UUID for sync - unique across all devices
+  date: string;              // YYYY-MM-DD
+  duration: number;          // minutes
+  bedtime?: string;          // HH:mm
+  wakeTime?: string;         // HH:mm
+  quality?: SleepQuality;
+  source: 'manual' | 'import';
+  createdAt: Date;
+  updatedAt?: Date;
+  deletedAt?: Date;
+  syncStatus?: 'pending' | 'synced' | 'failed';
+}
+
+// GRRROMODE: Training tracking
+export type MuscleGroup = 'push' | 'pull' | 'legs' | 'full_body' | 'cardio' | 'rest' | 'other';
+
+export interface TrainingEntry {
+  id?: number;
+  syncId?: string;           // UUID for sync - unique across all devices
+  date: string;              // YYYY-MM-DD
+  muscleGroup: MuscleGroup;
+  duration?: number;         // minutes
+  notes?: string;
+  source: 'manual' | 'import';
+  createdAt: Date;
+  updatedAt?: Date;
+  deletedAt?: Date;
+  syncStatus?: 'pending' | 'synced' | 'failed';
+}
+
 export interface FoodEntry {
   id?: number;
   syncId?: string;           // UUID for sync - unique across all devices (set on persist)
@@ -37,6 +72,12 @@ export interface UserSettings {
   timeFormat?: '12h' | '24h';               // time display format
   unitSystem?: 'metric' | 'imperial';       // measurement system
   energyUnit?: 'kcal' | 'kj';               // energy display unit
+  // GRRROMODE settings
+  sleepGoalMinutes?: number;                 // daily sleep target in minutes
+  sleepTrackingEnabled?: boolean;
+  trainingGoalPerWeek?: number;              // training sessions per week target
+  trainingTrackingEnabled?: boolean;
+  onboardingCompleted?: boolean;             // GRRROMODE onboarding completed
 }
 
 export interface DailyGoal {

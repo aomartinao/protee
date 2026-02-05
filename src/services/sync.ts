@@ -33,8 +33,14 @@ import {
   markEntrySynced,
   markEntryFailed,
   getPendingSyncCount,
+  getAllSleepEntriesForSync,
+  getSleepEntryBySyncId,
+  upsertSleepEntryBySyncId,
+  getAllTrainingEntriesForSync,
+  getTrainingEntryBySyncId,
+  upsertTrainingEntryBySyncId,
 } from '@/db';
-import type { FoodEntry, UserSettings, ChatMessage, DailyGoal } from '@/types';
+import type { FoodEntry, UserSettings, ChatMessage, DailyGoal, SleepEntry, TrainingEntry } from '@/types';
 
 // Debug logging - only in development
 const isDev = import.meta.env.DEV;
@@ -54,6 +60,10 @@ export interface SyncResult {
   messagesPulled?: number;
   goalsPushed?: number;
   goalsPulled?: number;
+  sleepPushed?: number;
+  sleepPulled?: number;
+  trainingPushed?: number;
+  trainingPulled?: number;
   error?: string;
 }
 
@@ -93,6 +103,35 @@ interface DbDailyGoal {
   date: string;
   goal: number;
   calorie_goal: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+interface DbSleepEntry {
+  id: string;
+  user_id: string;
+  sync_id: string;
+  date: string;
+  duration: number;
+  bedtime: string | null;
+  wake_time: string | null;
+  quality: string | null;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+interface DbTrainingEntry {
+  id: string;
+  user_id: string;
+  sync_id: string;
+  date: string;
+  muscle_group: string;
+  duration: number | null;
+  notes: string | null;
+  source: string;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -759,6 +798,294 @@ async function syncDailyGoals(
   };
 }
 
+// ============================================================
+// Sleep entries sync
+// ============================================================
+
+function sleepEntryToDb(entry: SleepEntry, userId: string): Omit<DbSleepEntry, 'id'> {
+  return {
+    user_id: userId,
+    sync_id: entry.syncId || crypto.randomUUID(),
+    date: entry.date,
+    duration: entry.duration,
+    bedtime: entry.bedtime ?? null,
+    wake_time: entry.wakeTime ?? null,
+    quality: entry.quality ?? null,
+    source: entry.source,
+    created_at: toISOString(entry.createdAt),
+    updated_at: toISOString(entry.updatedAt || entry.createdAt),
+    deleted_at: entry.deletedAt ? toISOString(entry.deletedAt) : null,
+  };
+}
+
+function sleepEntryFromDb(dbEntry: DbSleepEntry): Omit<SleepEntry, 'id'> {
+  return {
+    syncId: dbEntry.sync_id,
+    date: dbEntry.date,
+    duration: dbEntry.duration,
+    bedtime: dbEntry.bedtime ?? undefined,
+    wakeTime: dbEntry.wake_time ?? undefined,
+    quality: dbEntry.quality as SleepEntry['quality'],
+    source: dbEntry.source as SleepEntry['source'],
+    createdAt: new Date(dbEntry.created_at),
+    updatedAt: new Date(dbEntry.updated_at),
+    deletedAt: dbEntry.deleted_at ? new Date(dbEntry.deleted_at) : undefined,
+  };
+}
+
+async function pushSleepEntriesToCloud(
+  userId: string,
+  lastPushTime: Date | null
+): Promise<{ success: boolean; count: number; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { success: false, count: 0, error: 'Supabase not configured' };
+
+  try {
+    const localEntries = await getAllSleepEntriesForSync();
+    const entriesToPush = localEntries.filter(e => {
+      if (!lastPushTime) return true;
+      const updatedAt = e.updatedAt instanceof Date ? e.updatedAt : new Date(e.updatedAt || 0);
+      return updatedAt > lastPushTime;
+    });
+
+    syncDebug('Sleep Push: Pushing', entriesToPush.length, 'entries');
+    if (entriesToPush.length === 0) return { success: true, count: 0 };
+
+    let pushedCount = 0;
+    for (const entry of entriesToPush) {
+      try {
+        const dbEntry = sleepEntryToDb(entry, userId);
+        const { error } = await supabase
+          .from('sleep_entries')
+          .upsert(dbEntry, { onConflict: 'user_id,sync_id' });
+
+        if (error) {
+          console.error('[Sync] Sleep Push error:', entry.syncId, error);
+        } else {
+          pushedCount++;
+        }
+      } catch (err) {
+        console.error('[Sync] Sleep Push exception:', entry.syncId, err);
+      }
+    }
+
+    return { success: true, count: pushedCount };
+  } catch (err) {
+    return { success: false, count: 0, error: err instanceof Error ? err.message : 'Sleep push failed' };
+  }
+}
+
+async function pullSleepEntriesFromCloud(
+  userId: string,
+  lastPullTime: Date | null
+): Promise<{ success: boolean; count: number; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { success: false, count: 0, error: 'Supabase not configured' };
+
+  try {
+    let query = supabase
+      .from('sleep_entries')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (lastPullTime) {
+      const bufferMs = 5000;
+      const adjustedTime = new Date(lastPullTime.getTime() - bufferMs);
+      query = query.gte('updated_at', adjustedTime.toISOString());
+    }
+
+    const { data: cloudEntries, error } = await query;
+    if (error) return { success: false, count: 0, error: error.message };
+
+    syncDebug('Sleep Pull: Received', cloudEntries?.length || 0, 'entries');
+    if (!cloudEntries || cloudEntries.length === 0) return { success: true, count: 0 };
+
+    let pulledCount = 0;
+    for (const cloudEntry of cloudEntries as DbSleepEntry[]) {
+      const localEntry = await getSleepEntryBySyncId(cloudEntry.sync_id);
+      const cloudUpdatedAt = new Date(cloudEntry.updated_at);
+
+      let localUpdatedAt = new Date(0);
+      if (localEntry?.updatedAt) {
+        localUpdatedAt = localEntry.updatedAt instanceof Date
+          ? localEntry.updatedAt
+          : new Date(localEntry.updatedAt);
+      }
+
+      if (!localEntry || cloudUpdatedAt > localUpdatedAt) {
+        const entryData = sleepEntryFromDb(cloudEntry);
+        await upsertSleepEntryBySyncId({
+          ...entryData,
+          id: localEntry?.id,
+        } as SleepEntry);
+        pulledCount++;
+      }
+    }
+
+    syncDebug('Sleep Pull: Upserted', pulledCount, 'entries');
+    return { success: true, count: pulledCount };
+  } catch (err) {
+    return { success: false, count: 0, error: err instanceof Error ? err.message : 'Sleep pull failed' };
+  }
+}
+
+async function syncSleepEntries(
+  userId: string,
+  lastPushTime: Date | null,
+  lastPullTime: Date | null
+): Promise<{ pushed: number; pulled: number }> {
+  const pushResult = await pushSleepEntriesToCloud(userId, lastPushTime);
+  if (!pushResult.success) console.error('[Sync] Sleep push failed:', pushResult.error);
+
+  const pullResult = await pullSleepEntriesFromCloud(userId, lastPullTime);
+  if (!pullResult.success) console.error('[Sync] Sleep pull failed:', pullResult.error);
+
+  return { pushed: pushResult.count, pulled: pullResult.count };
+}
+
+// ============================================================
+// Training entries sync
+// ============================================================
+
+function trainingEntryToDb(entry: TrainingEntry, userId: string): Omit<DbTrainingEntry, 'id'> {
+  return {
+    user_id: userId,
+    sync_id: entry.syncId || crypto.randomUUID(),
+    date: entry.date,
+    muscle_group: entry.muscleGroup,
+    duration: entry.duration ?? null,
+    notes: entry.notes ?? null,
+    source: entry.source,
+    created_at: toISOString(entry.createdAt),
+    updated_at: toISOString(entry.updatedAt || entry.createdAt),
+    deleted_at: entry.deletedAt ? toISOString(entry.deletedAt) : null,
+  };
+}
+
+function trainingEntryFromDb(dbEntry: DbTrainingEntry): Omit<TrainingEntry, 'id'> {
+  return {
+    syncId: dbEntry.sync_id,
+    date: dbEntry.date,
+    muscleGroup: dbEntry.muscle_group as TrainingEntry['muscleGroup'],
+    duration: dbEntry.duration ?? undefined,
+    notes: dbEntry.notes ?? undefined,
+    source: dbEntry.source as TrainingEntry['source'],
+    createdAt: new Date(dbEntry.created_at),
+    updatedAt: new Date(dbEntry.updated_at),
+    deletedAt: dbEntry.deleted_at ? new Date(dbEntry.deleted_at) : undefined,
+  };
+}
+
+async function pushTrainingEntriesToCloud(
+  userId: string,
+  lastPushTime: Date | null
+): Promise<{ success: boolean; count: number; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { success: false, count: 0, error: 'Supabase not configured' };
+
+  try {
+    const localEntries = await getAllTrainingEntriesForSync();
+    const entriesToPush = localEntries.filter(e => {
+      if (!lastPushTime) return true;
+      const updatedAt = e.updatedAt instanceof Date ? e.updatedAt : new Date(e.updatedAt || 0);
+      return updatedAt > lastPushTime;
+    });
+
+    syncDebug('Training Push: Pushing', entriesToPush.length, 'entries');
+    if (entriesToPush.length === 0) return { success: true, count: 0 };
+
+    let pushedCount = 0;
+    for (const entry of entriesToPush) {
+      try {
+        const dbEntry = trainingEntryToDb(entry, userId);
+        const { error } = await supabase
+          .from('training_entries')
+          .upsert(dbEntry, { onConflict: 'user_id,sync_id' });
+
+        if (error) {
+          console.error('[Sync] Training Push error:', entry.syncId, error);
+        } else {
+          pushedCount++;
+        }
+      } catch (err) {
+        console.error('[Sync] Training Push exception:', entry.syncId, err);
+      }
+    }
+
+    return { success: true, count: pushedCount };
+  } catch (err) {
+    return { success: false, count: 0, error: err instanceof Error ? err.message : 'Training push failed' };
+  }
+}
+
+async function pullTrainingEntriesFromCloud(
+  userId: string,
+  lastPullTime: Date | null
+): Promise<{ success: boolean; count: number; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { success: false, count: 0, error: 'Supabase not configured' };
+
+  try {
+    let query = supabase
+      .from('training_entries')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (lastPullTime) {
+      const bufferMs = 5000;
+      const adjustedTime = new Date(lastPullTime.getTime() - bufferMs);
+      query = query.gte('updated_at', adjustedTime.toISOString());
+    }
+
+    const { data: cloudEntries, error } = await query;
+    if (error) return { success: false, count: 0, error: error.message };
+
+    syncDebug('Training Pull: Received', cloudEntries?.length || 0, 'entries');
+    if (!cloudEntries || cloudEntries.length === 0) return { success: true, count: 0 };
+
+    let pulledCount = 0;
+    for (const cloudEntry of cloudEntries as DbTrainingEntry[]) {
+      const localEntry = await getTrainingEntryBySyncId(cloudEntry.sync_id);
+      const cloudUpdatedAt = new Date(cloudEntry.updated_at);
+
+      let localUpdatedAt = new Date(0);
+      if (localEntry?.updatedAt) {
+        localUpdatedAt = localEntry.updatedAt instanceof Date
+          ? localEntry.updatedAt
+          : new Date(localEntry.updatedAt);
+      }
+
+      if (!localEntry || cloudUpdatedAt > localUpdatedAt) {
+        const entryData = trainingEntryFromDb(cloudEntry);
+        await upsertTrainingEntryBySyncId({
+          ...entryData,
+          id: localEntry?.id,
+        } as TrainingEntry);
+        pulledCount++;
+      }
+    }
+
+    syncDebug('Training Pull: Upserted', pulledCount, 'entries');
+    return { success: true, count: pulledCount };
+  } catch (err) {
+    return { success: false, count: 0, error: err instanceof Error ? err.message : 'Training pull failed' };
+  }
+}
+
+async function syncTrainingEntries(
+  userId: string,
+  lastPushTime: Date | null,
+  lastPullTime: Date | null
+): Promise<{ pushed: number; pulled: number }> {
+  const pushResult = await pushTrainingEntriesToCloud(userId, lastPushTime);
+  if (!pushResult.success) console.error('[Sync] Training push failed:', pushResult.error);
+
+  const pullResult = await pullTrainingEntriesFromCloud(userId, lastPullTime);
+  if (!pullResult.success) console.error('[Sync] Training pull failed:', pullResult.error);
+
+  return { pushed: pushResult.count, pulled: pullResult.count };
+}
+
 /**
  * Sync settings bidirectionally
  * 1. Pull settings from cloud
@@ -794,6 +1121,9 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
         // For tracking toggles: true wins (enabling on any device should propagate)
         calorieTrackingEnabled: cloudSettings.calorieTrackingEnabled || localSettings?.calorieTrackingEnabled,
         mpsTrackingEnabled: cloudSettings.mpsTrackingEnabled || localSettings?.mpsTrackingEnabled,
+        sleepTrackingEnabled: cloudSettings.sleepTrackingEnabled || localSettings?.sleepTrackingEnabled,
+        trainingTrackingEnabled: cloudSettings.trainingTrackingEnabled || localSettings?.trainingTrackingEnabled,
+        onboardingCompleted: cloudSettings.onboardingCompleted || localSettings?.onboardingCompleted,
       };
 
       // Save merged settings locally
@@ -867,6 +1197,12 @@ export async function fullSync(userId: string): Promise<SyncResult> {
     // Sync daily goals
     const goalsResult = await syncDailyGoals(userId, lastPushTime, lastPullTime);
 
+    // Sync sleep entries
+    const sleepResult = await syncSleepEntries(userId, lastPushTime, lastPullTime);
+
+    // Sync training entries
+    const trainingResult = await syncTrainingEntries(userId, lastPushTime, lastPullTime);
+
     // Update sync timestamps
     await setSyncMeta('lastPushTime', syncStartTime.toISOString());
     await setSyncMeta('lastPullTime', syncStartTime.toISOString());
@@ -874,7 +1210,9 @@ export async function fullSync(userId: string): Promise<SyncResult> {
 
     syncDebug('Sync complete. Food pushed:', pushResult.count, 'pulled:', pullResult.count,
       'Settings synced:', settingsSynced, 'Messages pushed:', chatResult.pushed, 'pulled:', chatResult.pulled,
-      'Goals pushed:', goalsResult.pushed, 'pulled:', goalsResult.pulled);
+      'Goals pushed:', goalsResult.pushed, 'pulled:', goalsResult.pulled,
+      'Sleep pushed:', sleepResult.pushed, 'pulled:', sleepResult.pulled,
+      'Training pushed:', trainingResult.pushed, 'pulled:', trainingResult.pulled);
 
     return {
       success: true,
@@ -885,6 +1223,10 @@ export async function fullSync(userId: string): Promise<SyncResult> {
       messagesPulled: chatResult.pulled,
       goalsPushed: goalsResult.pushed,
       goalsPulled: goalsResult.pulled,
+      sleepPushed: sleepResult.pushed,
+      sleepPulled: sleepResult.pulled,
+      trainingPushed: trainingResult.pushed,
+      trainingPulled: trainingResult.pulled,
     };
   } catch (err) {
     console.error('[Sync] Sync exception:', err);
@@ -934,6 +1276,11 @@ export async function pushSettingsToCloud(userId: string, settings: UserSettings
       advisor_onboarded: settings.advisorOnboarded ?? false,
       advisor_onboarding_started: settings.advisorOnboardingStarted ?? false,
       log_welcome_shown: settings.logWelcomeShown ?? false,
+      sleep_goal_minutes: settings.sleepGoalMinutes ?? null,
+      sleep_tracking_enabled: settings.sleepTrackingEnabled ?? false,
+      training_goal_per_week: settings.trainingGoalPerWeek ?? null,
+      training_tracking_enabled: settings.trainingTrackingEnabled ?? false,
+      onboarding_completed: settings.onboardingCompleted ?? false,
       updated_at: new Date().toISOString(),
     };
 
@@ -986,6 +1333,11 @@ export async function pullSettingsFromCloud(userId: string): Promise<UserSetting
       advisorOnboarded: data.advisor_onboarded ?? false,
       advisorOnboardingStarted: data.advisor_onboarding_started ?? false,
       logWelcomeShown: data.log_welcome_shown ?? false,
+      sleepGoalMinutes: data.sleep_goal_minutes ?? undefined,
+      sleepTrackingEnabled: data.sleep_tracking_enabled ?? false,
+      trainingGoalPerWeek: data.training_goal_per_week ?? undefined,
+      trainingTrackingEnabled: data.training_tracking_enabled ?? false,
+      onboardingCompleted: data.onboarding_completed ?? false,
     };
   } catch (err) {
     console.error('[Sync] Exception pulling settings:', err);

@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { FoodEntry, UserSettings, DailyGoal, ChatMessage } from '@/types';
+import type { FoodEntry, UserSettings, DailyGoal, ChatMessage, SleepEntry, TrainingEntry } from '@/types';
 
 interface SyncMeta {
   id?: number;
@@ -13,6 +13,8 @@ const db = new Dexie('ProteeDB') as Dexie & {
   dailyGoals: EntityTable<DailyGoal, 'id'>;
   syncMeta: EntityTable<SyncMeta, 'id'>;
   chatMessages: EntityTable<ChatMessage, 'id'>;
+  sleepEntries: EntityTable<SleepEntry, 'id'>;
+  trainingEntries: EntityTable<TrainingEntry, 'id'>;
 };
 
 db.version(1).stores({
@@ -73,6 +75,17 @@ db.version(5).stores({
       entry.syncStatus = entry.syncId ? 'synced' : 'pending';
     }
   });
+});
+
+// Version 6: Added sleepEntries and trainingEntries tables for GRRROMODE
+db.version(6).stores({
+  foodEntries: '++id, date, source, createdAt, syncStatus',
+  userSettings: '++id',
+  dailyGoals: '++id, date',
+  syncMeta: '++id, key',
+  chatMessages: '++id, syncId, timestamp',
+  sleepEntries: '++id, date',
+  trainingEntries: '++id, date',
 });
 
 export { db };
@@ -587,4 +600,202 @@ export async function cleanupOldChatMessages(olderThanDays: number = 21): Promis
   }
 
   return oldMessageIds.length;
+}
+
+// ============================================================
+// Sleep entry helpers
+// ============================================================
+
+function normalizeSleepEntryDates(entry: SleepEntry): SleepEntry {
+  return {
+    ...entry,
+    createdAt: entry.createdAt instanceof Date ? entry.createdAt : new Date(entry.createdAt),
+    updatedAt: entry.updatedAt
+      ? (entry.updatedAt instanceof Date ? entry.updatedAt : new Date(entry.updatedAt))
+      : undefined,
+    deletedAt: entry.deletedAt
+      ? (entry.deletedAt instanceof Date ? entry.deletedAt : new Date(entry.deletedAt))
+      : undefined,
+  };
+}
+
+export async function getSleepEntriesForDate(date: string): Promise<SleepEntry[]> {
+  const entries = await db.sleepEntries.where('date').equals(date).toArray();
+  return entries.filter(e => !e.deletedAt).map(normalizeSleepEntryDates);
+}
+
+export async function addSleepEntry(entry: Omit<SleepEntry, 'id'>): Promise<number> {
+  const entryWithSync = {
+    ...entry,
+    syncId: entry.syncId || crypto.randomUUID(),
+    updatedAt: entry.updatedAt || new Date(),
+    createdAt: entry.createdAt || new Date(),
+    syncStatus: entry.syncStatus || 'pending',
+  };
+  const id = await db.sleepEntries.add(entryWithSync as SleepEntry);
+  return id as number;
+}
+
+export async function getLastSleepEntry(): Promise<SleepEntry | undefined> {
+  const entries = await db.sleepEntries.orderBy('date').reverse().toArray();
+  const active = entries.find(e => !e.deletedAt);
+  return active ? normalizeSleepEntryDates(active) : undefined;
+}
+
+export async function getSleepAverageForDays(days: number): Promise<number> {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+  const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+
+  const entries = await db.sleepEntries
+    .where('date')
+    .aboveOrEqual(cutoffDateStr)
+    .toArray();
+
+  const active = entries.filter(e => !e.deletedAt);
+  if (active.length === 0) return 0;
+
+  const totalMinutes = active.reduce((sum, e) => sum + e.duration, 0);
+  return Math.round(totalMinutes / active.length);
+}
+
+export async function deleteSleepEntry(id: number): Promise<void> {
+  await db.sleepEntries.update(id, {
+    deletedAt: new Date(),
+    updatedAt: new Date(),
+  });
+}
+
+export async function updateSleepEntry(id: number, updates: Partial<SleepEntry>): Promise<number> {
+  const updatesWithSync = {
+    ...updates,
+    updatedAt: new Date(),
+    syncStatus: 'pending' as const,
+  };
+  return db.sleepEntries.update(id, updatesWithSync);
+}
+
+export async function getAllSleepEntriesForSync(): Promise<SleepEntry[]> {
+  const entries = await db.sleepEntries.toArray();
+  return entries.map(normalizeSleepEntryDates);
+}
+
+export async function getSleepEntryBySyncId(syncId: string): Promise<SleepEntry | undefined> {
+  if (!syncId) return undefined;
+  const entries = await db.sleepEntries.toArray();
+  const entry = entries.find(e => e.syncId === syncId);
+  return entry ? normalizeSleepEntryDates(entry) : undefined;
+}
+
+export async function upsertSleepEntryBySyncId(entry: SleepEntry): Promise<void> {
+  if (!entry.syncId) {
+    await db.sleepEntries.add(entry);
+    return;
+  }
+  const existing = await getSleepEntryBySyncId(entry.syncId);
+  if (existing?.id) {
+    await db.sleepEntries.update(existing.id, entry);
+  } else {
+    await db.sleepEntries.add(entry);
+  }
+}
+
+// ============================================================
+// Training entry helpers
+// ============================================================
+
+function normalizeTrainingEntryDates(entry: TrainingEntry): TrainingEntry {
+  return {
+    ...entry,
+    createdAt: entry.createdAt instanceof Date ? entry.createdAt : new Date(entry.createdAt),
+    updatedAt: entry.updatedAt
+      ? (entry.updatedAt instanceof Date ? entry.updatedAt : new Date(entry.updatedAt))
+      : undefined,
+    deletedAt: entry.deletedAt
+      ? (entry.deletedAt instanceof Date ? entry.deletedAt : new Date(entry.deletedAt))
+      : undefined,
+  };
+}
+
+export async function getTrainingEntriesForDate(date: string): Promise<TrainingEntry[]> {
+  const entries = await db.trainingEntries.where('date').equals(date).toArray();
+  return entries.filter(e => !e.deletedAt).map(normalizeTrainingEntryDates);
+}
+
+export async function addTrainingEntry(entry: Omit<TrainingEntry, 'id'>): Promise<number> {
+  const entryWithSync = {
+    ...entry,
+    syncId: entry.syncId || crypto.randomUUID(),
+    updatedAt: entry.updatedAt || new Date(),
+    createdAt: entry.createdAt || new Date(),
+    syncStatus: entry.syncStatus || 'pending',
+  };
+  const id = await db.trainingEntries.add(entryWithSync as TrainingEntry);
+  return id as number;
+}
+
+export async function getTrainingSessions7Days(): Promise<TrainingEntry[]> {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 7);
+  const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+
+  const entries = await db.trainingEntries
+    .where('date')
+    .aboveOrEqual(cutoffDateStr)
+    .toArray();
+
+  return entries.filter(e => !e.deletedAt && e.muscleGroup !== 'rest').map(normalizeTrainingEntryDates);
+}
+
+export async function getDaysSinceLastTraining(): Promise<number | null> {
+  const entries = await db.trainingEntries.orderBy('date').reverse().toArray();
+  const lastActive = entries.find(e => !e.deletedAt && e.muscleGroup !== 'rest');
+  if (!lastActive) return null;
+
+  const lastDate = new Date(lastActive.date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffMs = today.getTime() - lastDate.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+export async function deleteTrainingEntry(id: number): Promise<void> {
+  await db.trainingEntries.update(id, {
+    deletedAt: new Date(),
+    updatedAt: new Date(),
+  });
+}
+
+export async function updateTrainingEntry(id: number, updates: Partial<TrainingEntry>): Promise<number> {
+  const updatesWithSync = {
+    ...updates,
+    updatedAt: new Date(),
+    syncStatus: 'pending' as const,
+  };
+  return db.trainingEntries.update(id, updatesWithSync);
+}
+
+export async function getAllTrainingEntriesForSync(): Promise<TrainingEntry[]> {
+  const entries = await db.trainingEntries.toArray();
+  return entries.map(normalizeTrainingEntryDates);
+}
+
+export async function getTrainingEntryBySyncId(syncId: string): Promise<TrainingEntry | undefined> {
+  if (!syncId) return undefined;
+  const entries = await db.trainingEntries.toArray();
+  const entry = entries.find(e => e.syncId === syncId);
+  return entry ? normalizeTrainingEntryDates(entry) : undefined;
+}
+
+export async function upsertTrainingEntryBySyncId(entry: TrainingEntry): Promise<void> {
+  if (!entry.syncId) {
+    await db.trainingEntries.add(entry);
+    return;
+  }
+  const existing = await getTrainingEntryBySyncId(entry.syncId);
+  if (existing?.id) {
+    await db.trainingEntries.update(existing.id, entry);
+  } else {
+    await db.trainingEntries.add(entry);
+  }
 }
