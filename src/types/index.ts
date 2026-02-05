@@ -58,6 +58,7 @@ export interface ChatMessage {
   images?: string[];            // Multiple images support
   foodEntry?: FoodEntry;
   foodEntrySyncId?: string;     // Link to confirmed food entry
+  foodEntryDeletedAt?: Date;    // Tracks when food entry was deleted (survives sync)
   isLoading?: boolean;
   isError?: boolean;            // Marks error messages for distinct styling
   isAnalyzingImage?: boolean;   // Shows "Analyzing photo..." in loading state

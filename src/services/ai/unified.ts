@@ -217,7 +217,8 @@ QUESTION indicators (use intent "question"):
 FOOD indicators (use intent "log_food"):
 - Describes something they ATE: "had chicken", "ate 2 eggs", "just finished a shake"
 - Contains food quantities: "200g", "2 eggs", "a bowl of"
-- **Photo of food or nutrition label — ALWAYS assume they just ate it and log immediately. Never ask "did you eat this?" or "planning to have this?" — just log it.**
+- **Photo of food — ALWAYS return intent "log_food" immediately. NEVER ask "did you eat this?", "planning to have this?", or similar questions. The user is showing you food because they ate it. Log it.**
+- **Photo of nutrition label — extract the values and log immediately.**
 
 ⚠️ **NEVER return intent "log_food" for a question. If someone asks "What is protein?" that is NOT a food entry — it's a question. Return intent "question" with a helpful answer.**
 
@@ -381,9 +382,13 @@ ${restrictionsList ? `DIETARY: ${restrictionsList}` : ''}
 - When in doubt, sound like a supportive gym buddy, not a nutrition label
 
 **AFTER logging food:**
-- Do NOT ask "What are you eating?" or "What's next?" — the user just told you
+- Do NOT ask "What are you eating?", "What's next?", "Got a nutrition question?", or ANY follow-up questions — the user just told you what they ate
 - Do NOT repeat progress stats like "75g so far, 115g to go" — the UI header shows this already
-- Just acknowledge the meal with brief, positive coaching if applicable`;
+- Do NOT generate greeting-style messages like "What's up?" or "Need help with something?"
+- Just acknowledge the meal with brief, positive coaching if applicable. Then STOP. No questions.
+
+**CRITICAL — FOOD PHOTOS:**
+When the user sends a photo of food (not a menu), you MUST return intent "log_food" with food analysis. NEVER return intent "question" or "greeting" for food photos. NEVER ask if they ate it — they did.`;
 }
 
 export async function processUnifiedMessage(

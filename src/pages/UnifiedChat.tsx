@@ -649,14 +649,18 @@ export function UnifiedChat() {
     // Soft delete in database
     await deleteFoodEntryBySyncId(syncId);
 
-    // Update message's embedded foodEntry to show cancelled state
+    // Update message to show cancelled state
+    // Store deletedAt both on foodEntry AND as a separate flag to survive sync reloads
     const message = messages.find(m => m.foodEntrySyncId === syncId);
-    if (message?.foodEntry) {
+    if (message) {
+      const deletedAt = new Date();
       updateMessage(message.syncId, {
-        foodEntry: {
+        foodEntry: message.foodEntry ? {
           ...message.foodEntry,
-          deletedAt: new Date(),
-        },
+          deletedAt,
+        } : undefined,
+        // Store cancelled state separately so it survives message reloads from cloud
+        foodEntryDeletedAt: deletedAt,
       });
     }
 
@@ -709,8 +713,10 @@ export function UnifiedChat() {
           // Check for confirmed food entry on this message
           const foodEntry = message.foodEntry ||
             (message.foodEntrySyncId ? entriesBySyncId.get(message.foodEntrySyncId) : undefined);
-          const hasConfirmedFood = !!(foodEntry && message.foodEntrySyncId && !foodEntry.deletedAt);
-          const hasCancelledFood = !!(foodEntry && message.foodEntrySyncId && foodEntry.deletedAt);
+          // Check cancelled state from both foodEntry.deletedAt AND message.foodEntryDeletedAt (survives sync)
+          const isCancelled = !!(foodEntry?.deletedAt || message.foodEntryDeletedAt);
+          const hasConfirmedFood = !!(foodEntry && message.foodEntrySyncId && !isCancelled);
+          const hasCancelledFood = !!(foodEntry && message.foodEntrySyncId && isCancelled);
           const isMPSHit = hasConfirmedFood && mpsHitSyncIds.has(message.foodEntrySyncId!);
           const entrySyncId = message.foodEntrySyncId;
 
