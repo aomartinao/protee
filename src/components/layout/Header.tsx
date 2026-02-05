@@ -216,14 +216,24 @@ export function Header() {
     </Popover>
   );
 
-  // Progress bar color: red (0%) → amber (50%) → green (100%)
-  const getProgressColor = () => {
-    const percent = insights.percentComplete;
+  // Progress colors: red (0%) → amber (50%) → green (100%)
+  const percent = insights.percentComplete;
+  const isGoalReached = percent >= 100;
+
+  const getProgressBgColor = () => {
     if (percent >= 100) return 'bg-green-500';
     if (percent >= 75) return 'bg-lime-500';
     if (percent >= 50) return 'bg-amber-500';
     if (percent >= 25) return 'bg-orange-500';
     return 'bg-red-500';
+  };
+
+  const getProgressTextColor = () => {
+    if (percent >= 100) return 'text-green-600';
+    if (percent >= 75) return 'text-lime-600';
+    if (percent >= 50) return 'text-amber-600';
+    if (percent >= 25) return 'text-orange-600';
+    return 'text-red-600';
   };
 
   return (
@@ -234,11 +244,14 @@ export function Header() {
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold text-foreground">Coach</h1>
               <div className="flex items-baseline gap-1 text-sm">
-                <span className={`font-semibold ${insights.percentComplete >= 100 ? 'text-green-600' : 'text-primary'}`}>
+                <span className={`font-semibold transition-colors duration-300 ${getProgressTextColor()} ${isGoalReached ? 'animate-pulse' : ''}`}>
                   {insights.todayProtein}g
                 </span>
                 <span className="text-muted-foreground">/ {settings.defaultGoal}g</span>
-                {insights.currentStreak > 0 && (
+                {isGoalReached && (
+                  <span className="ml-1 text-green-500 animate-bounce">🎉</span>
+                )}
+                {!isGoalReached && insights.currentStreak > 0 && (
                   <span className="ml-1 text-orange-500 text-xs">🔥{insights.currentStreak}</span>
                 )}
               </div>
@@ -250,10 +263,10 @@ export function Header() {
         </div>
         {/* Progress bar for Coach page */}
         {isCoachPage && (
-          <div className="h-2 bg-gray-200 dark:bg-gray-700">
+          <div className="h-1 bg-gray-200 dark:bg-gray-700">
             <div
-              className={`h-full transition-all duration-500 ${getProgressColor()}`}
-              style={{ width: `${Math.min(100, insights.percentComplete)}%` }}
+              className={`h-full transition-all duration-500 ${getProgressBgColor()} ${isGoalReached ? 'animate-pulse shadow-lg shadow-green-500/50' : ''}`}
+              style={{ width: `${Math.min(100, percent)}%` }}
             />
           </div>
         )}
