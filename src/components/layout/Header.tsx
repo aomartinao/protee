@@ -60,18 +60,18 @@ export function Header() {
   }, [insights.percentComplete, isCoachPage]);
 
   // Generate particles for celebration - burst up then fall like water drops
-  const particles = showCelebration ? Array.from({ length: 40 }, (_, i) => {
-    const burstHeight = 30 + Math.random() * 50; // How high they burst up (px)
-    const horizontalDrift = (Math.random() - 0.5) * 100; // Slight horizontal movement
+  const particles = showCelebration ? Array.from({ length: 80 }, (_, i) => {
+    const burstHeight = 20 + Math.random() * 40; // How high they burst up (px)
+    const horizontalDrift = (Math.random() - 0.5) * 120; // Slight horizontal movement
     return {
       id: i,
       x: Math.random() * 100, // % position across the screen
       burstHeight,
       horizontalDrift,
-      size: 6 + Math.random() * 8,
+      size: 3 + Math.random() * 4, // Smaller particles (3-7px)
       color: ['bg-lime-300', 'bg-lime-400', 'bg-yellow-300', 'bg-yellow-400', 'bg-amber-300'][Math.floor(Math.random() * 5)],
-      delay: Math.random() * 0.4, // Staggered start
-      duration: 1.5 + Math.random() * 1.0, // Total animation duration
+      delay: Math.random() * 0.5, // Staggered start
+      duration: 1.2 + Math.random() * 0.8, // Total animation duration
     };
   }) : [];
 
@@ -253,7 +253,6 @@ export function Header() {
 
   // Progress colors: red (0%) → amber (50%) → lime-yellow (100%)
   const percent = insights.percentComplete;
-  const isGoalReached = percent >= 100;
 
   const getProgressBgColor = () => {
     if (percent >= 100) return 'bg-lime-400';
@@ -279,14 +278,11 @@ export function Header() {
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold text-foreground">Coach</h1>
               <div className="flex items-baseline gap-1 text-sm">
-                <span className={`font-semibold transition-colors duration-300 ${getProgressTextColor()} ${isGoalReached ? 'animate-pulse' : ''}`}>
+                <span className={`font-semibold transition-colors duration-300 ${getProgressTextColor()}`}>
                   {insights.todayProtein}g
                 </span>
                 <span className="text-muted-foreground">/ {settings.defaultGoal}g</span>
-                {isGoalReached && (
-                  <span className="ml-1 text-lime-500 animate-bounce">🎉</span>
-                )}
-                {!isGoalReached && insights.currentStreak > 0 && (
+                {insights.currentStreak > 0 && (
                   <span className="ml-1 text-orange-500 text-xs">🔥{insights.currentStreak}</span>
                 )}
               </div>
@@ -300,7 +296,7 @@ export function Header() {
         {isCoachPage && (
           <div className="h-1 bg-gray-200 dark:bg-gray-700">
             <div
-              className={`h-full transition-all duration-500 ${getProgressBgColor()} ${isGoalReached ? 'animate-pulse shadow-lg shadow-lime-400/50' : ''}`}
+              className={`h-full transition-all duration-500 ${getProgressBgColor()} ${showCelebration ? 'animate-pulse shadow-lg shadow-lime-400/50' : ''}`}
               style={{ width: `${Math.min(100, percent)}%` }}
             />
           </div>
