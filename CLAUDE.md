@@ -81,10 +81,20 @@ For **quick tasks under 30 minutes**: Skip formal tracking, just execute and sum
   echo $DATABASE_PASSWORD  # Never do this
   ```
 
-### Running Migrations
+### Database Commands — PRIMARY METHOD
+Use psql directly (works in all worktrees, no setup needed):
 ```bash
-source /path/to/.env && psql "postgresql://postgres:${DATABASE_PASSWORD}@db.paifkqqqwhtqhyxgibvl.supabase.co:5432/postgres" -c "YOUR SQL HERE"
+# Single command
+source .env && psql "postgresql://postgres:${DATABASE_PASSWORD}@db.paifkqqqwhtqhyxgibvl.supabase.co:5432/postgres" -c "SELECT * FROM users LIMIT 5"
+
+# Interactive session
+source .env && psql "postgresql://postgres:${DATABASE_PASSWORD}@db.paifkqqqwhtqhyxgibvl.supabase.co:5432/postgres"
+
+# Run migration file
+source .env && psql "postgresql://postgres:${DATABASE_PASSWORD}@db.paifkqqqwhtqhyxgibvl.supabase.co:5432/postgres" -f migrations/001_example.sql
 ```
+
+**AVOID:** `supabase db push` — requires linking per worktree, often fails
 
 ---
 
