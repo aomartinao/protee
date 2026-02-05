@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { format, subDays, addDays, isToday, startOfDay } from 'date-fns';
+import { format, subDays, addDays, isToday, startOfDay, parseISO } from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
 import { DailyProgress } from '@/components/tracking/DailyProgress';
 import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { useSettings, useStreak, useRecentEntries, useDeleteEntry } from '@/hooks/useProteinData';
@@ -10,7 +11,30 @@ import { refineAnalysis } from '@/services/ai/client';
 import type { FoodEntry, ConfidenceLevel } from '@/types';
 
 export function Dashboard() {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
+
+  // Initialize date from URL param or default to today
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (dateParam) {
+      try {
+        const parsed = parseISO(dateParam);
+        if (!isNaN(parsed.getTime())) {
+          return startOfDay(parsed);
+        }
+      } catch {
+        // Invalid date, fall through to today
+      }
+    }
+    return new Date();
+  });
+
+  // Clear URL param after initial load (don't keep it in the URL)
+  useEffect(() => {
+    if (dateParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [dateParam, setSearchParams]);
   const recentEntries = useRecentEntries(30);
   const { settings } = useSettings();
   const streak = useStreak(recentEntries, settings.defaultGoal);
