@@ -126,15 +126,14 @@ These areas require explicit user approval before modification:
 - If unsure about Git state, STOP and ask
 
 ### Worktree Rules — IMPORTANT
-- **NEVER run `git checkout main`** — main is used by the main worktree at `/Users/mho/clauding/protee`
-- To get updates from main, use:
+- **Check if you're in a worktree:** If your working directory is NOT `/Users/mho/clauding/protee`, you're in a worktree
+- **In worktrees: NEVER run `git checkout main`** — main is used by the main repo
+- **In worktrees:** To get updates from main, use:
   ```bash
   git fetch origin
   git merge origin/main
-  # OR
-  git rebase origin/main
   ```
-- Stay on your feature branch at all times
+- **In main repo (`/Users/mho/clauding/protee`):** You ARE on main, normal git workflow applies
 - Check your branch with `git branch --show-current` if unsure
 
 ---
