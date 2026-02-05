@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, Send, Image as ImageIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { compressImage } from '@/lib/utils';
@@ -7,16 +7,47 @@ interface ChatInputProps {
   onSend: (text: string, images: string[]) => void;
   disabled?: boolean;
   onFocusChange?: (focused: boolean, hasText: boolean) => void;
+  externalImage?: string | null;
+  onExternalImageConsumed?: () => void;
+  initialText?: string;
+  onInitialTextConsumed?: () => void;
 }
 
 const MAX_IMAGES = 4;
 
-export function ChatInput({ onSend, disabled, onFocusChange }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  disabled,
+  onFocusChange,
+  externalImage,
+  onExternalImageConsumed,
+  initialText,
+  onInitialTextConsumed,
+}: ChatInputProps) {
   const [text, setText] = useState('');
   const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle external image (e.g., from floating add button camera)
+  useEffect(() => {
+    if (externalImage && pendingImages.length < MAX_IMAGES) {
+      setPendingImages(prev => [...prev, externalImage]);
+      onExternalImageConsumed?.();
+    }
+  }, [externalImage, onExternalImageConsumed, pendingImages.length]);
+
+  // Handle initial text (e.g., from quick log pre-fill)
+  useEffect(() => {
+    if (initialText) {
+      setText(initialText);
+      onInitialTextConsumed?.();
+      // Focus the input after setting text
+      setTimeout(() => textInputRef.current?.focus(), 100);
+    }
+  }, [initialText, onInitialTextConsumed]);
 
   const handleFocus = () => {
     setIsFocused(true);
@@ -138,6 +169,7 @@ export function ChatInput({ onSend, disabled, onFocusChange }: ChatInputProps) {
         {/* Text input */}
         <div className="flex-1 relative min-w-0">
           <input
+            ref={textInputRef}
             type="text"
             value={text}
             onChange={handleTextChange}

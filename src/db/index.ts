@@ -425,7 +425,8 @@ export async function clearAllChatMessages(): Promise<void> {
 // Clean up old chat messages (hard delete, not soft delete)
 // Get frequent meals for quick log shortcuts
 export interface FrequentMeal {
-  foodName: string;
+  foodName: string;        // Display name (capitalized)
+  originalName: string;    // Last logged version (for pre-fill)
   protein: number;
   calories?: number;
   count: number;
@@ -441,8 +442,15 @@ export async function getFrequentMeals(limit: number = 5, daysBack: number = 30)
     .aboveOrEqual(cutoffDateStr)
     .toArray();
 
+  // Sort by date/time descending to get most recent first
+  entries.sort((a, b) => {
+    const dateA = a.consumedAt || a.createdAt || new Date(a.date);
+    const dateB = b.consumedAt || b.createdAt || new Date(b.date);
+    return new Date(dateB).getTime() - new Date(dateA).getTime();
+  });
+
   // Filter out deleted entries and count by normalized food name
-  const mealCounts = new Map<string, { protein: number; calories?: number; count: number }>();
+  const mealCounts = new Map<string, { originalName: string; protein: number; calories?: number; count: number }>();
 
   for (const entry of entries) {
     if (entry.deletedAt) continue;
@@ -453,11 +461,10 @@ export async function getFrequentMeals(limit: number = 5, daysBack: number = 30)
     const existing = mealCounts.get(normalizedName);
     if (existing) {
       existing.count++;
-      // Use the most recent protein/calorie values
-      existing.protein = entry.protein;
-      existing.calories = entry.calories;
+      // Keep the first (most recent) original name, protein, calories
     } else {
       mealCounts.set(normalizedName, {
+        originalName: entry.foodName, // Keep original casing/format
         protein: entry.protein,
         calories: entry.calories,
         count: 1,
@@ -469,6 +476,7 @@ export async function getFrequentMeals(limit: number = 5, daysBack: number = 30)
   const sorted = Array.from(mealCounts.entries())
     .map(([foodName, data]) => ({
       foodName: foodName.charAt(0).toUpperCase() + foodName.slice(1), // Capitalize first letter
+      originalName: data.originalName,
       protein: data.protein,
       calories: data.calories,
       count: data.count,

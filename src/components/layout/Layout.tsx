@@ -24,14 +24,14 @@ export function Layout() {
     <div className="flex flex-col h-full bg-background overflow-hidden">
       <Header />
       {disablePullToRefresh ? (
-        <div className="flex-1 pb-24 overflow-hidden flex flex-col min-h-0">
+        <div className="flex-1 pb-20 overflow-hidden flex flex-col min-h-0">
           <Outlet />
         </div>
       ) : (
         <PullToRefresh
           onRefresh={handleRefresh}
           disabled={isSyncing}
-          className="flex-1 pb-24"
+          className="flex-1 pb-20"
         >
           <Outlet />
         </PullToRefresh>

@@ -59,6 +59,8 @@ export interface ChatMessage {
   foodEntry?: FoodEntry;
   foodEntrySyncId?: string;     // Link to confirmed food entry
   isLoading?: boolean;
+  isError?: boolean;            // Marks error messages for distinct styling
+  isAnalyzingImage?: boolean;   // Shows "Analyzing photo..." in loading state
   timestamp: Date;
   updatedAt?: Date;             // For sync conflict resolution
   deletedAt?: Date;             // Soft delete for sync

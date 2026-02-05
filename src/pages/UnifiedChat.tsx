@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
-import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange, hardDeleteFoodEntry, type FrequentMeal } from '@/db';
+import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange, hardDeleteFoodEntry } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits, calculateMPSAnalysis, calculateCategoryBreakdown, triggerHaptic } from '@/lib/utils';
 import { refineAnalysis } from '@/services/ai/client';
@@ -94,6 +94,17 @@ export function UnifiedChat() {
 
   // Input focus state for showing quick log suggestions
   const [showQuickLogSuggestions, setShowQuickLogSuggestions] = useState(false);
+
+  // Pre-fill text state for quick log shortcuts
+  const [prefillText, setPrefillText] = useState<string | null>(null);
+
+  // Progress feedback state (shows +Xg animation on confirm)
+  const [progressFeedback, setProgressFeedback] = useState<number | null>(null);
+
+  // Smart scroll state
+  const [showNewMessagePill, setShowNewMessagePill] = useState(false);
+  const isAtBottomRef = useRef(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Load messages on mount
   useEffect(() => {
@@ -226,17 +237,43 @@ export function UnifiedChat() {
     messagesEndRef.current?.scrollIntoView({
       behavior: instant ? 'instant' : 'smooth'
     });
+    setShowNewMessagePill(false);
   }, []);
 
-  // Scroll on messages change - instant on first load, smooth after
+  // Check if scroll is at bottom (with small threshold)
+  const checkIfAtBottom = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return true;
+    const threshold = 100; // px from bottom to consider "at bottom"
+    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+  }, []);
+
+  // Handle scroll events to track position
+  const handleScroll = useCallback(() => {
+    const atBottom = checkIfAtBottom();
+    isAtBottomRef.current = atBottom;
+    if (atBottom) {
+      setShowNewMessagePill(false);
+    }
+  }, [checkIfAtBottom]);
+
+  // Scroll on messages change - instant on first load, smart after
   useEffect(() => {
     if (!messagesLoaded) return;
 
     const isInitialScroll = !hasScrolledRef.current;
     if (isInitialScroll) {
       hasScrolledRef.current = true;
+      scrollToBottom(true);
+      return;
     }
-    scrollToBottom(isInitialScroll);
+
+    // Smart scroll: only scroll if user is at bottom, otherwise show pill
+    if (isAtBottomRef.current) {
+      scrollToBottom(false);
+    } else {
+      setShowNewMessagePill(true);
+    }
   }, [messages, pendingFood, messagesLoaded, scrollToBottom]);
 
   // Handle sending message (text and/or images)
@@ -256,17 +293,10 @@ export function UnifiedChat() {
     await processInput(text, images);
   };
 
-  // Handle pending image from home screen (quick capture via long-press)
-  useEffect(() => {
-    if (!insightsReady || !initialized || !pendingImageFromHome) return;
-
-    // Consume the pending image
-    const imageData = pendingImageFromHome;
+  // Handle consuming external image after it's added to ChatInput
+  const handleExternalImageConsumed = useCallback(() => {
     setPendingImageFromHome(null, null);
-
-    // Send the image
-    handleSend('', [imageData]);
-  }, [insightsReady, initialized, pendingImageFromHome, setPendingImageFromHome, handleSend]);
+  }, [setPendingImageFromHome]);
 
   // Process input through unified AI
   const processInput = async (text: string, images: string[]) => {
@@ -284,11 +314,13 @@ export function UnifiedChat() {
     }
 
     const loadingSyncId = crypto.randomUUID();
+    const hasImages = images.length > 0;
     addMessage({
       syncId: loadingSyncId,
       type: 'assistant',
       content: '',
       isLoading: true,
+      isAnalyzingImage: hasImages,
       timestamp: new Date(),
     });
 
@@ -408,6 +440,7 @@ export function UnifiedChat() {
     } catch (error) {
       updateMessage(loadingSyncId, {
         isLoading: false,
+        isError: true,
         content: `Something went wrong. ${error instanceof Error ? error.message : 'Please try again.'}`,
       });
     } finally {
@@ -471,6 +504,10 @@ export function UnifiedChat() {
 
     const entryId = await addFoodEntry(foodEntry);
     triggerHaptic('success');
+
+    // Show progress feedback animation
+    setProgressFeedback(analysis.protein);
+    setTimeout(() => setProgressFeedback(null), 2000);
 
     // Store full food entry on the message (for display in chat)
     updateMessage(messageSyncId, {
@@ -590,44 +627,16 @@ export function UnifiedChat() {
     handleSend(reply, []);
   };
 
-  // Handle quick log shortcut - directly create pending food without AI
-  const handleQuickLog = (meal: FrequentMeal) => {
-    // Create a user message for the quick log
-    const userMessageSyncId = crypto.randomUUID();
-    addMessage({
-      syncId: userMessageSyncId,
-      type: 'user',
-      content: meal.foodName,
-      timestamp: new Date(),
-    });
-
-    // Create assistant message acknowledging the quick log
-    const assistantMessageSyncId = crypto.randomUUID();
-    addMessage({
-      syncId: assistantMessageSyncId,
-      type: 'assistant',
-      content: `Quick logging ${meal.foodName} - ${meal.protein}g protein. Confirm or edit below.`,
-      timestamp: new Date(),
-    });
-
-    // Set pending food directly (no AI round-trip)
-    setPendingFood({
-      messageSyncId: assistantMessageSyncId,
-      analysis: {
-        foodName: meal.foodName,
-        protein: meal.protein,
-        calories: meal.calories,
-        confidence: 'high' as const,
-        consumedAt: {
-          parsedDate: format(new Date(), 'yyyy-MM-dd'),
-          parsedTime: format(new Date(), 'HH:mm'),
-        },
-      },
-    });
-
-    // Hide suggestions after selecting
+  // Handle quick log shortcut - pre-fill the input instead of direct logging
+  const handleQuickLog = useCallback((prefillText: string) => {
+    setPrefillText(prefillText);
     setShowQuickLogSuggestions(false);
-  };
+  }, []);
+
+  // Callback when prefill text is consumed by ChatInput
+  const handlePrefillTextConsumed = useCallback(() => {
+    setPrefillText(null);
+  }, []);
 
   // Handle input focus change for quick log suggestions
   const handleInputFocusChange = useCallback((focused: boolean, hasText: boolean) => {
@@ -686,9 +695,15 @@ export function UnifiedChat() {
       {/* Compact progress bar */}
       <div className="px-4 py-2 border-b bg-background flex-shrink-0">
         <div className="flex items-center justify-between text-sm">
-          <div>
+          <div className="flex items-center gap-2">
             <span className="font-semibold text-primary">{insights.todayProtein}g</span>
             <span className="text-muted-foreground"> / {settings.defaultGoal}g</span>
+            {/* Progress feedback animation */}
+            {progressFeedback !== null && (
+              <span className="text-green-600 font-semibold text-xs animate-in fade-in slide-in-from-left-2 duration-300">
+                +{progressFeedback}g
+              </span>
+            )}
           </div>
           {insights.currentStreak > 0 && (
             <span className="text-orange-500 text-xs">🔥 {insights.currentStreak}d</span>
@@ -696,89 +711,94 @@ export function UnifiedChat() {
         </div>
         <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
           <div
-            className="h-full bg-primary rounded-full transition-all duration-500"
+            className={`h-full bg-primary rounded-full transition-all duration-500 ${progressFeedback !== null ? 'animate-pulse' : ''}`}
             style={{ width: `${Math.min(100, insights.percentComplete)}%` }}
           />
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-2 min-h-0 scroll-smooth overscroll-contain">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-2 min-h-0 scroll-smooth overscroll-contain relative"
+      >
         {messages.map((message, index) => {
-          // Show LoggedFoodCard for messages with confirmed food entries
-          // Check both message.foodEntry (new) and lookup by syncId (old messages)
+          // Check for confirmed food entry on this message
           const foodEntry = message.foodEntry ||
             (message.foodEntrySyncId ? entriesBySyncId.get(message.foodEntrySyncId) : undefined);
+          const hasConfirmedFood = !!(foodEntry && message.foodEntrySyncId && !foodEntry.deletedAt);
+          const isMPSHit = hasConfirmedFood && mpsHitSyncIds.has(message.foodEntrySyncId!);
+          const entrySyncId = message.foodEntrySyncId;
 
-          if (foodEntry && message.foodEntrySyncId && !foodEntry.deletedAt) {
-            const isMPSHit = mpsHitSyncIds.has(message.foodEntrySyncId);
-            const entrySyncId = message.foodEntrySyncId;
-            return (
-              <div key={message.syncId} className="mb-3">
-                <SwipeableRow
-                  itemName={foodEntry.foodName}
-                  onEdit={() => handleEditLoggedFood(foodEntry)}
-                  onDelete={() => handleDeleteLoggedFood(entrySyncId)}
-                >
-                  <LoggedFoodCard
-                    entry={foodEntry}
-                    showCalories={settings.calorieTrackingEnabled}
-                    isMPSHit={isMPSHit}
-                  />
-                </SwipeableRow>
-              </div>
-            );
-          }
+          // Check if pending food belongs to this message
+          const hasPendingFood = pendingFood && pendingFood.messageSyncId === message.syncId;
 
-          return (
-            <MessageBubble
-              key={message.syncId}
-              message={message}
-              isLatestMessage={index === messages.length - 1}
-            />
-          );
-        })}
-
-        {/* Pending food card */}
-        {pendingFood && (() => {
-          // Convert parsed time to Date if available
+          // Calculate pending food consumed time
           let pendingConsumedAt: Date | undefined;
-          if (pendingFood.analysis.consumedAt?.parsedDate && pendingFood.analysis.consumedAt?.parsedTime) {
+          if (hasPendingFood && pendingFood.analysis.consumedAt?.parsedDate && pendingFood.analysis.consumedAt?.parsedTime) {
             const { parsedDate, parsedTime } = pendingFood.analysis.consumedAt;
             const [year, month, day] = parsedDate.split('-').map(Number);
             const [hours, minutes] = parsedTime.split(':').map(Number);
             const parsed = new Date(year, month - 1, day, hours, minutes);
 
-            // Validate the date is reasonable (within last 2 days)
             const now = new Date();
             const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
             if (parsed >= twoDaysAgo && parsed <= now) {
               pendingConsumedAt = parsed;
             } else {
-              // Use today's date with the parsed time
               pendingConsumedAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
             }
           }
+
           return (
-            <div className="mt-3 mb-2">
-              <FoodCard
-                entry={{
-                  foodName: pendingFood.analysis.foodName,
-                  protein: pendingFood.analysis.protein,
-                  calories: pendingFood.analysis.calories,
-                  confidence: pendingFood.analysis.confidence,
-                  imageData: pendingFood.imageData,
-                  consumedAt: pendingConsumedAt,
-                } as FoodEntry}
-                onConfirm={handleConfirmFood}
-                onSaveEdit={handleSavePendingEdit}
-                onCancel={handleCancelFood}
-                showCalories={settings.calorieTrackingEnabled}
-                isConfirmed={false}
+            <div key={message.syncId}>
+              {/* Always render the message bubble */}
+              <MessageBubble
+                message={message}
+                isLatestMessage={index === messages.length - 1 && !hasConfirmedFood && !hasPendingFood}
               />
+
+              {/* Render LoggedFoodCard below the AI message that confirmed it */}
+              {hasConfirmedFood && (
+                <div className="mt-2 mb-3">
+                  <SwipeableRow
+                    itemName={foodEntry.foodName}
+                    onEdit={() => handleEditLoggedFood(foodEntry)}
+                    onDelete={() => handleDeleteLoggedFood(entrySyncId!)}
+                  >
+                    <LoggedFoodCard
+                      entry={foodEntry}
+                      showCalories={settings.calorieTrackingEnabled}
+                      isMPSHit={isMPSHit}
+                    />
+                  </SwipeableRow>
+                </div>
+              )}
+
+              {/* Render pending FoodCard below the AI message that analyzed it */}
+              {hasPendingFood && (
+                <div className="mt-2 mb-3">
+                  <FoodCard
+                    entry={{
+                      foodName: pendingFood.analysis.foodName,
+                      protein: pendingFood.analysis.protein,
+                      calories: pendingFood.analysis.calories,
+                      confidence: pendingFood.analysis.confidence,
+                      imageData: pendingFood.imageData,
+                      consumedAt: pendingConsumedAt,
+                    } as FoodEntry}
+                    onConfirm={handleConfirmFood}
+                    onSaveEdit={handleSavePendingEdit}
+                    onCancel={handleCancelFood}
+                    showCalories={settings.calorieTrackingEnabled}
+                    isConfirmed={false}
+                  />
+                </div>
+              )}
             </div>
           );
-        })()}
+        })}
 
         {/* Quick replies */}
         {showQuickReplies.length > 0 && !isProcessing && !pendingFood && (
@@ -791,6 +811,16 @@ export function UnifiedChat() {
         )}
 
         <div ref={messagesEndRef} />
+
+        {/* New message pill - shown when scrolled up and new messages arrive */}
+        {showNewMessagePill && (
+          <button
+            onClick={() => scrollToBottom(false)}
+            className="sticky bottom-2 left-1/2 -translate-x-1/2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-full shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200 z-10"
+          >
+            ↓ New message
+          </button>
+        )}
       </div>
 
       {/* Quick Log Shortcuts - shown when input is focused and empty */}
@@ -806,6 +836,10 @@ export function UnifiedChat() {
         onSend={handleSend}
         disabled={isProcessing}
         onFocusChange={handleInputFocusChange}
+        externalImage={pendingImageFromHome}
+        onExternalImageConsumed={handleExternalImageConsumed}
+        initialText={prefillText || undefined}
+        onInitialTextConsumed={handlePrefillTextConsumed}
       />
 
       {/* Edit Dialog */}

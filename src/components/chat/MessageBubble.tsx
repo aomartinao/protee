@@ -1,3 +1,4 @@
+import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/types';
 import { FoodCard } from './FoodCard';
@@ -52,11 +53,18 @@ export function MessageBubble({
             ? hasImages
               ? 'rounded-2xl rounded-br-md overflow-hidden bg-primary text-primary-foreground'
               : 'rounded-2xl rounded-br-md px-4 py-2 bg-primary text-primary-foreground'
+            : message.isError
+            ? 'text-sm py-2 px-3 rounded-xl bg-red-50 text-red-700 border border-red-200'
             : 'text-foreground/80 text-sm py-1'
         )}
       >
         {message.isLoading ? (
-          <TypingIndicator />
+          <div className="flex items-center gap-2">
+            <TypingIndicator />
+            {message.isAnalyzingImage && (
+              <span className="text-xs text-muted-foreground">Analyzing photo...</span>
+            )}
+          </div>
         ) : (
           <>
             {hasImages && (
@@ -84,6 +92,9 @@ export function MessageBubble({
             )}
             {message.content && (
               <div className={cn('text-sm min-w-0', hasImages && isUser && 'px-4 py-2')}>
+                {message.isError && (
+                  <AlertCircle className="h-4 w-4 inline-block mr-1.5 -mt-0.5" />
+                )}
                 <MarkdownText>{message.content}</MarkdownText>
               </div>
             )}
