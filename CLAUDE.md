@@ -73,8 +73,8 @@ For **quick tasks under 30 minutes**: Skip formal tracking, just execute and sum
 - **NEVER echo/print credential values** — use variables without displaying them
 - **Use environment variables in commands:**
   ```bash
-  # CORRECT - value never appears in output
-  source .env && psql "postgresql://postgres:${DATABASE_PASSWORD}@db.xxx.supabase.co:5432/postgres" -c "SELECT 1"
+  # CORRECT - value never appears in output (use session pooler for IPv4 compatibility)
+  source .env && psql "postgresql://postgres.paifkqqqwhtqhyxgibvl:${DATABASE_PASSWORD}@aws-1-eu-west-1.pooler.supabase.com:5432/postgres" -c "SELECT 1"
 
   # WRONG - would expose the password
   cat .env  # Never do this
@@ -82,17 +82,19 @@ For **quick tasks under 30 minutes**: Skip formal tracking, just execute and sum
   ```
 
 ### Database Commands — PRIMARY METHOD
-Use psql directly (works in all worktrees, no setup needed):
+Use psql with **session pooler** (IPv4 compatible, works everywhere):
 ```bash
 # Single command
-source .env && psql "postgresql://postgres:${DATABASE_PASSWORD}@db.paifkqqqwhtqhyxgibvl.supabase.co:5432/postgres" -c "SELECT * FROM users LIMIT 5"
+source .env && psql "postgresql://postgres.paifkqqqwhtqhyxgibvl:${DATABASE_PASSWORD}@aws-1-eu-west-1.pooler.supabase.com:5432/postgres" -c "SELECT * FROM users LIMIT 5"
 
 # Interactive session
-source .env && psql "postgresql://postgres:${DATABASE_PASSWORD}@db.paifkqqqwhtqhyxgibvl.supabase.co:5432/postgres"
+source .env && psql "postgresql://postgres.paifkqqqwhtqhyxgibvl:${DATABASE_PASSWORD}@aws-1-eu-west-1.pooler.supabase.com:5432/postgres"
 
 # Run migration file
-source .env && psql "postgresql://postgres:${DATABASE_PASSWORD}@db.paifkqqqwhtqhyxgibvl.supabase.co:5432/postgres" -f migrations/001_example.sql
+source .env && psql "postgresql://postgres.paifkqqqwhtqhyxgibvl:${DATABASE_PASSWORD}@aws-1-eu-west-1.pooler.supabase.com:5432/postgres" -f supabase/migrations/your_migration.sql
 ```
+
+**NOTE:** Using session pooler (`aws-1-eu-west-1`, port 5432) - direct connection requires IPv6.
 
 **AVOID:** `supabase db push` — requires linking per worktree, often fails
 

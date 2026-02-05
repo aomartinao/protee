@@ -216,6 +216,16 @@ export function Header() {
     </Popover>
   );
 
+  // Progress bar color: red (0%) → amber (50%) → green (100%)
+  const getProgressColor = () => {
+    const percent = insights.percentComplete;
+    if (percent >= 100) return 'bg-green-500';
+    if (percent >= 75) return 'bg-lime-500';
+    if (percent >= 50) return 'bg-amber-500';
+    if (percent >= 25) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-background safe-area-inset-top">
@@ -238,6 +248,15 @@ export function Header() {
           )}
           {renderHeaderAction()}
         </div>
+        {/* Progress bar for Coach page */}
+        {isCoachPage && (
+          <div className="h-2 bg-gray-200 dark:bg-gray-700">
+            <div
+              className={`h-full transition-all duration-500 ${getProgressColor()}`}
+              style={{ width: `${Math.min(100, insights.percentComplete)}%` }}
+            />
+          </div>
+        )}
       </header>
 
       <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
