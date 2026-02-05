@@ -120,10 +120,22 @@ These areas require explicit user approval before modification:
 - Commit directly to `main`
 
 ### Context Awareness
-- You're working in a **worktree**, not the main repo
+- You're likely working in a **worktree**, not the main repo
 - Other Claude instances may be working on parallel branches
 - Don't modify files outside your branch's scope
 - If unsure about Git state, STOP and ask
+
+### Worktree Rules — IMPORTANT
+- **NEVER run `git checkout main`** — main is used by the main worktree at `/Users/mho/clauding/protee`
+- To get updates from main, use:
+  ```bash
+  git fetch origin
+  git merge origin/main
+  # OR
+  git rebase origin/main
+  ```
+- Stay on your feature branch at all times
+- Check your branch with `git branch --show-current` if unsure
 
 ---
 
