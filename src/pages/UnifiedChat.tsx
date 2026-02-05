@@ -33,8 +33,9 @@ interface PendingFood {
   imageData?: string;
 }
 
-// Show messages from the last week, auto-cleanup older ones
-const CHAT_HISTORY_DAYS = 7;
+// Chat history retention settings
+const CHAT_HISTORY_DAYS = 14;  // Display window: 2 weeks for weekly wrap-ups
+const CHAT_CLEANUP_DAYS = 21;  // Local cleanup: 3 weeks (buffer for offline use)
 
 export function UnifiedChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -108,9 +109,15 @@ export function UnifiedChat() {
     loadMessages();
   }, [loadMessages]);
 
-  // Cleanup old messages on mount (older than 1 week)
+  // Cleanup old messages (throttled to once per day)
   useEffect(() => {
-    cleanupOldChatMessages(CHAT_HISTORY_DAYS);
+    const lastCleanup = localStorage.getItem('lastChatCleanup');
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+
+    if (!lastCleanup || parseInt(lastCleanup) < oneDayAgo) {
+      cleanupOldChatMessages(CHAT_CLEANUP_DAYS);
+      localStorage.setItem('lastChatCleanup', Date.now().toString());
+    }
   }, []);
 
   // Build context for AI
@@ -649,14 +656,18 @@ export function UnifiedChat() {
     // Soft delete in database
     await deleteFoodEntryBySyncId(syncId);
 
-    // Update message's embedded foodEntry to show cancelled state
+    // Update message to show cancelled state
+    // Store deletedAt both on foodEntry AND as a separate flag to survive sync reloads
     const message = messages.find(m => m.foodEntrySyncId === syncId);
-    if (message?.foodEntry) {
+    if (message) {
+      const deletedAt = new Date();
       updateMessage(message.syncId, {
-        foodEntry: {
+        foodEntry: message.foodEntry ? {
           ...message.foodEntry,
-          deletedAt: new Date(),
-        },
+          deletedAt,
+        } : undefined,
+        // Store cancelled state separately so it survives message reloads from cloud
+        foodEntryDeletedAt: deletedAt,
       });
     }
 
@@ -709,8 +720,10 @@ export function UnifiedChat() {
           // Check for confirmed food entry on this message
           const foodEntry = message.foodEntry ||
             (message.foodEntrySyncId ? entriesBySyncId.get(message.foodEntrySyncId) : undefined);
-          const hasConfirmedFood = !!(foodEntry && message.foodEntrySyncId && !foodEntry.deletedAt);
-          const hasCancelledFood = !!(foodEntry && message.foodEntrySyncId && foodEntry.deletedAt);
+          // Check cancelled state from both foodEntry.deletedAt AND message.foodEntryDeletedAt (survives sync)
+          const isCancelled = !!(foodEntry?.deletedAt || message.foodEntryDeletedAt);
+          const hasConfirmedFood = !!(foodEntry && message.foodEntrySyncId && !isCancelled);
+          const hasCancelledFood = !!(foodEntry && message.foodEntrySyncId && isCancelled);
           const isMPSHit = hasConfirmedFood && mpsHitSyncIds.has(message.foodEntrySyncId!);
           const entrySyncId = message.foodEntrySyncId;
 

@@ -9,6 +9,11 @@
  * - Efficient data transfer (only modified entries)
  */
 
+// Chat sync settings - time-based for consistency across devices
+const CHAT_SYNC_DAYS = 14;      // Sync window: 2 weeks (matches display)
+// Note: Cloud cleanup (30 days) should be handled by a Supabase scheduled function
+// to avoid accumulating old messages indefinitely
+
 import { getSupabase, isSupabaseConfigured } from './supabase';
 import {
   db,
@@ -413,15 +418,22 @@ async function pushChatMessagesToCloud(
   try {
     const localMessages = await getAllChatMessagesForSync();
 
-    // Filter to messages that need pushing (modified after last push)
-    // Limit to last 200 messages for efficiency
-    const messagesToPush = localMessages
-      .filter(m => {
-        if (!lastPushTime) return true;
+    // Filter to messages within sync window (14 days) and modified after last push
+    const syncCutoff = new Date();
+    syncCutoff.setDate(syncCutoff.getDate() - CHAT_SYNC_DAYS);
+
+    const messagesToPush = localMessages.filter(m => {
+      // Only sync messages within the sync window
+      const timestamp = m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp || 0);
+      if (timestamp < syncCutoff) return false;
+
+      // If we have a last push time, only push modified messages
+      if (lastPushTime) {
         const updatedAt = m.updatedAt instanceof Date ? m.updatedAt : new Date(m.updatedAt || 0);
         return updatedAt > lastPushTime;
-      })
-      .slice(-200);
+      }
+      return true;
+    });
 
     syncDebug('Chat Push: Pushing', messagesToPush.length, 'messages');
 
@@ -473,12 +485,16 @@ async function pullChatMessagesFromCloud(
   }
 
   try {
+    // Calculate sync window cutoff (14 days)
+    const syncCutoff = new Date();
+    syncCutoff.setDate(syncCutoff.getDate() - CHAT_SYNC_DAYS);
+
     let query = supabase
       .from('chat_messages')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(200);
+      .gte('created_at', syncCutoff.toISOString())  // Only messages within sync window
+      .order('created_at', { ascending: false });
 
     if (lastPullTime) {
       // Use gte with buffer to avoid missing entries due to clock drift
