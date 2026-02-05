@@ -14,7 +14,7 @@ import { useProgressInsights } from '@/hooks/useProgressInsights';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
-import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange } from '@/db';
+import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange, setDailyGoal } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits, calculateMPSAnalysis, calculateCategoryBreakdown, triggerHaptic } from '@/lib/utils';
 import { refineAnalysis } from '@/services/ai/client';
@@ -500,6 +500,10 @@ export function UnifiedChat() {
     };
 
     await addFoodEntry(foodEntry);
+
+    // Save the current goal for this day (updates on every entry to capture goal changes)
+    await setDailyGoal(entryDate, settings.defaultGoal, settings.calorieGoal);
+
     triggerHaptic('success');
 
     // Show progress feedback animation
