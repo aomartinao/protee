@@ -4,6 +4,8 @@ import { Loader2 } from 'lucide-react';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { FoodCard } from '@/components/chat/FoodCard';
 import { LoggedFoodCard } from '@/components/chat/LoggedFoodCard';
+import { SleepLogCard } from '@/components/chat/SleepLogCard';
+import { TrainingLogCard } from '@/components/chat/TrainingLogCard';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { QuickLogShortcuts } from '@/components/chat/QuickLogShortcuts';
 import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
@@ -14,7 +16,12 @@ import { useProgressInsights } from '@/hooks/useProgressInsights';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
-import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange, setDailyGoal } from '@/db';
+import {
+  addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry,
+  getEntriesForDateRange, setDailyGoal,
+  addSleepEntry, getSleepAverageForDays, getLastSleepEntry,
+  addTrainingEntry, getTrainingSessions7Days, getDaysSinceLastTraining,
+} from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits, calculateMPSAnalysis, calculateCategoryBreakdown, triggerHaptic } from '@/lib/utils';
 import { refineAnalysis } from '@/services/ai/client';
@@ -24,6 +31,10 @@ import {
   type UnifiedContext,
   type UnifiedMessage,
   type FoodAnalysis,
+  type SleepAnalysis,
+  type TrainingAnalysis,
+  type SleepContext,
+  type TrainingContext,
 } from '@/services/ai/unified';
 import type { DietaryPreferences, FoodEntry, ConfidenceLevel } from '@/types';
 
@@ -31,6 +42,16 @@ interface PendingFood {
   messageSyncId: string;
   analysis: FoodAnalysis;
   imageData?: string;
+}
+
+interface PendingSleep {
+  messageSyncId: string;
+  analysis: SleepAnalysis;
+}
+
+interface PendingTraining {
+  messageSyncId: string;
+  analysis: TrainingAnalysis;
 }
 
 // Chat history retention settings
@@ -88,6 +109,10 @@ export function UnifiedChat() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState<string[]>([]);
   const [pendingFood, setPendingFood] = useState<PendingFood | null>(null);
+  const [pendingSleep, setPendingSleep] = useState<PendingSleep | null>(null);
+  const [pendingTraining, setPendingTraining] = useState<PendingTraining | null>(null);
+  const [sleepContext, setSleepContext] = useState<SleepContext | null>(null);
+  const [trainingContext, setTrainingContext] = useState<TrainingContext | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   // Edit dialog state
@@ -122,6 +147,42 @@ export function UnifiedChat() {
       localStorage.setItem('lastChatCleanup', Date.now().toString());
     }
   }, []);
+
+  // Load sleep & training context on mount
+  useEffect(() => {
+    if (!settingsLoaded) return;
+
+    async function loadSleepTrainingContext() {
+      // Sleep context
+      if (settings.sleepTrackingEnabled) {
+        const [avg7, lastEntry] = await Promise.all([
+          getSleepAverageForDays(7),
+          getLastSleepEntry(),
+        ]);
+        setSleepContext({
+          sleepLastNight: lastEntry?.date === getToday() ? lastEntry.duration : undefined,
+          sleepAvg7Days: avg7 || undefined,
+          sleepGoal: settings.sleepGoalMinutes,
+        });
+      }
+
+      // Training context
+      if (settings.trainingTrackingEnabled) {
+        const [sessions, daysSince] = await Promise.all([
+          getTrainingSessions7Days(),
+          getDaysSinceLastTraining(),
+        ]);
+        setTrainingContext({
+          trainingSessions7Days: sessions.length,
+          trainingGoalPerWeek: settings.trainingGoalPerWeek,
+          daysSinceLastTraining: daysSince ?? undefined,
+          lastMuscleGroup: sessions[0]?.muscleGroup,
+        });
+      }
+    }
+
+    loadSleepTrainingContext();
+  }, [settingsLoaded, settings.sleepTrackingEnabled, settings.trainingTrackingEnabled, settings.sleepGoalMinutes, settings.trainingGoalPerWeek]);
 
   // Build context for AI
   const getContext = useCallback((): UnifiedContext => {
@@ -188,8 +249,10 @@ export function UnifiedChat() {
       mpsAnalysis,
       todayByCategory,
       preferencesSource,
+      sleepContext: sleepContext ?? undefined,
+      trainingContext: trainingContext ?? undefined,
     };
-  }, [settings, insights, nickname, messages, todayEntries]);
+  }, [settings, insights, nickname, messages, todayEntries, sleepContext, trainingContext]);
 
   // Track if we've waited for insights to load
   const [insightsReady, setInsightsReady] = useState(false);
@@ -281,12 +344,14 @@ export function UnifiedChat() {
     } else {
       setShowNewMessagePill(true);
     }
-  }, [messages, pendingFood, messagesLoaded, scrollToBottom]);
+  }, [messages, pendingFood, pendingSleep, pendingTraining, messagesLoaded, scrollToBottom]);
 
   // Handle sending message (text and/or images)
   const handleSend = async (text: string, images: string[]) => {
     setShowQuickReplies([]);
     setPendingFood(null);
+    setPendingSleep(null);
+    setPendingTraining(null);
 
     const userSyncId = crypto.randomUUID();
     addMessage({
@@ -408,6 +473,38 @@ export function UnifiedChat() {
           messageSyncId: loadingSyncId,
           analysis: result.foodAnalysis,
           imageData: images[0] || undefined,
+        });
+
+        if (result.quickReplies) {
+          setShowQuickReplies(result.quickReplies);
+        }
+      }
+      // Handle sleep logging intent
+      else if (result.intent === 'log_sleep' && result.sleepAnalysis) {
+        updateMessage(loadingSyncId, {
+          isLoading: false,
+          content: buildDisplayMessage(result.acknowledgment || result.message, result.coaching),
+        });
+
+        setPendingSleep({
+          messageSyncId: loadingSyncId,
+          analysis: result.sleepAnalysis,
+        });
+
+        if (result.quickReplies) {
+          setShowQuickReplies(result.quickReplies);
+        }
+      }
+      // Handle training logging intent
+      else if (result.intent === 'log_training' && result.trainingAnalysis) {
+        updateMessage(loadingSyncId, {
+          isLoading: false,
+          content: buildDisplayMessage(result.acknowledgment || result.message, result.coaching),
+        });
+
+        setPendingTraining({
+          messageSyncId: loadingSyncId,
+          analysis: result.trainingAnalysis,
         });
 
         if (result.quickReplies) {
@@ -560,6 +657,90 @@ export function UnifiedChat() {
   // Cancel food entry
   const handleCancelFood = () => {
     setPendingFood(null);
+    setShowQuickReplies([]);
+  };
+
+  // Confirm sleep entry
+  const handleConfirmSleep = async () => {
+    if (!pendingSleep) return;
+
+    const { analysis } = pendingSleep;
+    const now = new Date();
+
+    await addSleepEntry({
+      date: getToday(),
+      duration: analysis.duration,
+      bedtime: analysis.bedtime,
+      wakeTime: analysis.wakeTime,
+      quality: analysis.quality,
+      source: 'manual',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    triggerHaptic('success');
+    triggerSync();
+
+    // Refresh sleep context
+    const [avg7, lastEntry] = await Promise.all([
+      getSleepAverageForDays(7),
+      getLastSleepEntry(),
+    ]);
+    setSleepContext({
+      sleepLastNight: lastEntry?.date === getToday() ? lastEntry.duration : undefined,
+      sleepAvg7Days: avg7 || undefined,
+      sleepGoal: settings.sleepGoalMinutes,
+    });
+
+    setPendingSleep(null);
+    setShowQuickReplies([]);
+  };
+
+  // Cancel sleep entry
+  const handleCancelSleep = () => {
+    setPendingSleep(null);
+    setShowQuickReplies([]);
+  };
+
+  // Confirm training entry
+  const handleConfirmTraining = async () => {
+    if (!pendingTraining) return;
+
+    const { analysis } = pendingTraining;
+    const now = new Date();
+
+    await addTrainingEntry({
+      date: getToday(),
+      muscleGroup: analysis.muscleGroup,
+      duration: analysis.duration,
+      notes: analysis.notes,
+      source: 'manual',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    triggerHaptic('success');
+    triggerSync();
+
+    // Refresh training context
+    const [sessions, daysSince] = await Promise.all([
+      getTrainingSessions7Days(),
+      getDaysSinceLastTraining(),
+    ]);
+    setTrainingContext({
+      trainingSessions7Days: sessions.length,
+      trainingGoalPerWeek: settings.trainingGoalPerWeek,
+      daysSinceLastTraining: daysSince ?? undefined,
+      lastMuscleGroup: sessions[0]?.muscleGroup,
+    });
+
+    setPendingTraining(null);
+    setShowQuickReplies([]);
+  };
+
+  // Cancel training entry
+  const handleCancelTraining = () => {
+    setPendingTraining(null);
     setShowQuickReplies([]);
   };
 
@@ -790,12 +971,48 @@ export function UnifiedChat() {
                   />
                 </div>
               )}
+
+              {/* Render pending SleepLogCard */}
+              {pendingSleep && pendingSleep.messageSyncId === message.syncId && (
+                <div className="mt-2 mb-3">
+                  <SleepLogCard
+                    entry={{
+                      duration: pendingSleep.analysis.duration,
+                      bedtime: pendingSleep.analysis.bedtime,
+                      wakeTime: pendingSleep.analysis.wakeTime,
+                      quality: pendingSleep.analysis.quality,
+                    }}
+                    sleepGoalMinutes={settings.sleepGoalMinutes}
+                    onConfirm={handleConfirmSleep}
+                    onCancel={handleCancelSleep}
+                  />
+                </div>
+              )}
+
+              {/* Render pending TrainingLogCard */}
+              {pendingTraining && pendingTraining.messageSyncId === message.syncId && (
+                <div className="mt-2 mb-3">
+                  <TrainingLogCard
+                    entry={{
+                      muscleGroup: pendingTraining.analysis.muscleGroup,
+                      duration: pendingTraining.analysis.duration,
+                      notes: pendingTraining.analysis.notes,
+                    }}
+                    weeklyProgress={trainingContext?.trainingGoalPerWeek ? {
+                      done: trainingContext.trainingSessions7Days ?? 0,
+                      goal: trainingContext.trainingGoalPerWeek,
+                    } : undefined}
+                    onConfirm={handleConfirmTraining}
+                    onCancel={handleCancelTraining}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
 
         {/* Quick replies */}
-        {showQuickReplies.length > 0 && !isProcessing && !pendingFood && (
+        {showQuickReplies.length > 0 && !isProcessing && !pendingFood && !pendingSleep && !pendingTraining && (
           <div className="mt-3">
             <QuickReplies
               replies={showQuickReplies}
@@ -818,7 +1035,7 @@ export function UnifiedChat() {
       </div>
 
       {/* Quick Log Shortcuts - shown when input is focused and empty */}
-      {!pendingFood && !isProcessing && showQuickLogSuggestions && (
+      {!pendingFood && !pendingSleep && !pendingTraining && !isProcessing && showQuickLogSuggestions && (
         <QuickLogShortcuts
           onSelect={handleQuickLog}
           disabled={isProcessing}
