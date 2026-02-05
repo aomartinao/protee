@@ -4,6 +4,7 @@ import {
   db,
   getEntriesForDate,
   getEntriesForDateRange,
+  getEntriesForDateRangeIncludingDeleted,
   deleteFoodEntry,
   restoreFoodEntry,
   saveUserSettings,
@@ -33,6 +34,17 @@ export function useRecentEntries(days: number = 30) {
   const { start, end } = getDateRange(days);
   const entries = useLiveQuery(
     () => getEntriesForDateRange(start, end),
+    [start, end]
+  );
+  return entries || [];
+}
+
+// Same as useRecentEntries but includes soft-deleted entries
+// Used for chat message food card lookup (to show cancelled state)
+export function useRecentEntriesIncludingDeleted(days: number = 30) {
+  const { start, end } = getDateRange(days);
+  const entries = useLiveQuery(
+    () => getEntriesForDateRangeIncludingDeleted(start, end),
     [start, end]
   );
   return entries || [];

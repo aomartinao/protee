@@ -113,6 +113,16 @@ export async function getEntriesForDateRange(startDate: string, endDate: string)
   return entries.filter(e => !e.deletedAt).map(normalizeFoodEntryDates);
 }
 
+// Same as getEntriesForDateRange but includes soft-deleted entries
+// Used for chat message food card lookup (to show cancelled state)
+export async function getEntriesForDateRangeIncludingDeleted(startDate: string, endDate: string): Promise<FoodEntry[]> {
+  const entries = await db.foodEntries
+    .where('date')
+    .between(startDate, endDate, true, true)
+    .toArray();
+  return entries.map(normalizeFoodEntryDates);
+}
+
 export async function addFoodEntry(entry: Omit<FoodEntry, 'id'>): Promise<number> {
   // Ensure sync fields are set - new entries are always pending until synced
   const entryWithSync = {

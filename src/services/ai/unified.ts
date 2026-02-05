@@ -346,16 +346,20 @@ When logging food, check these conditions and ADD a coaching message:
 | protein >= 20 AND protein < 25 | mps_protein | "Close to 25g! A bit more would trigger full MPS." |
 | minutesSinceLastHit < 180 AND minutesSinceLastHit != null | mps_timing | "Good protein, but only Xmin since last meal. 3h+ spacing maximizes MPS." |
 | protein >= 30 AND hoursUntilSleep <= 3 | timing_warning | "Heavy protein late — may affect sleep. Lighter options: yogurt, cottage cheese." |
-| consumed + this meal's protein >= goal (${goal}g) | celebration | "🎯 Goal hit! [total]g today." |
-| consumed + this meal's protein >= goal * 0.9 | celebration | "Almost there! Just [remaining]g to go." |
+| ${consumed} + this meal's protein >= ${goal} | celebration | "🎯 Goal hit! [new total]g today." |
+| ${consumed} + this meal's protein >= ${goal} * 0.9 | celebration | "Almost there! Just [remaining]g to go." |
 | ${dominantCategory || 'one category'} accounts for >60% of today's protein | variety_nudge | "Lots of ${dominantCategory || 'one source'} today — try mixing sources for better aminos." |
 
 **IMPORTANT: Include coaching when conditions match. Don't skip it.**
 
-## CONTEXT
+## CONTEXT (SOURCE OF TRUTH)
+
+**CRITICAL: The PROGRESS value below is the ONLY accurate source for today's protein total.**
+**NEVER calculate totals by adding up previous messages. NEVER use numbers from your previous responses.**
+**If you said "174g today" earlier but PROGRESS now shows 207g, use 207g.**
 
 USER: ${name}
-PROGRESS: ${consumed}g / ${goal}g (${remaining}g remaining)
+PROGRESS: ${consumed}g / ${goal}g (${remaining}g remaining) ← USE THIS, NOT CONVERSATION HISTORY
 DATE: ${currentTime.toLocaleDateString('en-CA')}
 TIME: ${currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
 ${sleepTime ? `SLEEP TIME: ~${sleepTime} (${hoursUntilSleep}h away)` : ''}
