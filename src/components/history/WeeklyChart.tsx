@@ -1,17 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { format, subDays, addDays, startOfDay } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import {
   Bar,
   XAxis,
   YAxis,
   ResponsiveContainer,
-  Tooltip,
   Cell,
   ReferenceLine,
   ComposedChart,
   Line,
 } from 'recharts';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Flame, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Flame, Zap, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { calculateMPSHits } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -73,6 +73,58 @@ export function WeeklyChart({
   onNextWeek,
   isSwiping = false,
 }: WeeklyChartProps) {
+  const navigate = useNavigate();
+  const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    if (!selectedDay) return;
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setSelectedDay(null);
+      }
+    };
+
+    // Small delay to avoid immediate close on the same tap that opened it
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [selectedDay]);
+
+  // Close popover when swiping
+  useEffect(() => {
+    if (isSwiping) setSelectedDay(null);
+  }, [isSwiping]);
+
+  const handleBarClick = (data: DayData, event: React.MouseEvent) => {
+    if (isSwiping) return;
+
+    const chartRect = chartContainerRef.current?.getBoundingClientRect();
+    if (!chartRect) return;
+
+    // Position popover above the clicked point
+    const x = event.clientX - chartRect.left;
+    const y = event.clientY - chartRect.top;
+
+    setPopoverPosition({ x, y: y - 10 });
+    setSelectedDay(data);
+  };
+
+  const handleViewDay = (dateStr: string) => {
+    setSelectedDay(null);
+    navigate(`/?date=${dateStr}`);
+  };
   const chartData = useMemo(() => {
     const today = startOfDay(new Date());
     const todayStr = format(today, 'yyyy-MM-dd');
@@ -154,80 +206,81 @@ export function WeeklyChart({
     ? Math.round(((totalProtein - prevWeekTotal) / prevWeekTotal) * 100)
     : 0;
 
-  // Custom tooltip - only show when not swiping
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (isSwiping || !active || !payload?.length) return null;
-
-    const data = payload[0]?.payload as DayData;
-    if (!data) return null;
-
-    return (
-      <div className="bg-card/95 backdrop-blur-sm border border-border/50 rounded-xl p-3 shadow-xl text-sm pointer-events-none">
-        <p className="font-semibold mb-2">{format(new Date(data.date), 'EEEE, MMM d')}</p>
-        <div className="space-y-1">
-          {data.breakfast > 0 && (
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-300" />
-                Breakfast
-              </span>
-              <span className="font-medium">{data.breakfast}g</span>
-            </div>
-          )}
-          {data.lunch > 0 && (
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                Lunch
-              </span>
-              <span className="font-medium">{data.lunch}g</span>
-            </div>
-          )}
-          {data.snack > 0 && (
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                Snack
-              </span>
-              <span className="font-medium">{data.snack}g</span>
-            </div>
-          )}
-          {data.dinner > 0 && (
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-orange-500" />
-                Dinner
-              </span>
-              <span className="font-medium">{data.dinner}g</span>
-            </div>
-          )}
-          <div className="border-t border-border/50 pt-1.5 mt-1.5 flex justify-between gap-4">
-            <span className="font-medium">Protein</span>
-            <span className={cn("font-bold", data.goalMet ? "text-green-600" : "text-primary")}>
-              {data.totalProtein}g
+  // Popover content component
+  const renderPopoverContent = (data: DayData) => (
+    <div className="bg-card/95 backdrop-blur-sm border border-border/50 rounded-xl p-3 shadow-xl text-sm min-w-[180px]">
+      <p className="font-semibold mb-2">{format(new Date(data.date), 'EEEE, MMM d')}</p>
+      <div className="space-y-1">
+        {data.breakfast > 0 && (
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-300" />
+              Breakfast
+            </span>
+            <span className="font-medium">{data.breakfast}g</span>
+          </div>
+        )}
+        {data.lunch > 0 && (
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              Lunch
+            </span>
+            <span className="font-medium">{data.lunch}g</span>
+          </div>
+        )}
+        {data.snack > 0 && (
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              Snack
+            </span>
+            <span className="font-medium">{data.snack}g</span>
+          </div>
+        )}
+        {data.dinner > 0 && (
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-orange-500" />
+              Dinner
+            </span>
+            <span className="font-medium">{data.dinner}g</span>
+          </div>
+        )}
+        <div className="border-t border-border/50 pt-1.5 mt-1.5 flex justify-between gap-4">
+          <span className="font-medium">Protein</span>
+          <span className={cn("font-bold", data.goalMet ? "text-green-600" : "text-primary")}>
+            {data.totalProtein}g
+          </span>
+        </div>
+        {calorieTrackingEnabled && data.totalCalories > 0 && (
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Calories</span>
+            <span className={cn(
+              "font-medium",
+              data.totalCalories > calorieGoal ? "text-red-500" : "text-orange-600"
+            )}>
+              {data.totalCalories} kcal
             </span>
           </div>
-          {calorieTrackingEnabled && data.totalCalories > 0 && (
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Calories</span>
-              <span className={cn(
-                "font-medium",
-                data.totalCalories > calorieGoal ? "text-red-500" : "text-orange-600"
-              )}>
-                {data.totalCalories} kcal
-              </span>
-            </div>
-          )}
-          {mpsTrackingEnabled && data.mpsHits > 0 && (
-            <div className="flex justify-between gap-4 items-center">
-              <span className="text-muted-foreground">MPS hits</span>
-              <span className="font-medium text-purple-600">{data.mpsHits}</span>
-            </div>
-          )}
-        </div>
+        )}
+        {mpsTrackingEnabled && data.mpsHits > 0 && (
+          <div className="flex justify-between gap-4 items-center">
+            <span className="text-muted-foreground">MPS hits</span>
+            <span className="font-medium text-purple-600">{data.mpsHits}</span>
+          </div>
+        )}
+        {/* View day button */}
+        <button
+          onClick={() => handleViewDay(data.date)}
+          className="w-full mt-2 pt-2 border-t border-border/50 flex items-center justify-center gap-1.5 text-primary hover:text-primary/80 transition-colors"
+        >
+          <span className="text-xs font-medium">View day</span>
+          <ExternalLink className="h-3 w-3" />
+        </button>
       </div>
-    );
-  };
+    </div>
+  );
 
   // Calculate max for Y axis
   const maxProtein = Math.max(...chartData.map(d => d.totalProtein), goal);
@@ -296,7 +349,7 @@ export function WeeklyChart({
 
       {/* Chart */}
       <div className="bg-card rounded-2xl p-4 shadow-sm">
-        <div className="h-56">
+        <div className="h-56 relative" ref={chartContainerRef}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 20, right: calorieTrackingEnabled ? 35 : 10, left: 0, bottom: 0 }}>
               <defs>
@@ -366,11 +419,6 @@ export function WeeklyChart({
                   tickFormatter={(value) => value >= 1000 ? `${value/1000}k` : value}
                 />
               )}
-              <Tooltip
-                content={<CustomTooltip />}
-                cursor={false}
-                trigger="click"
-              />
               {/* Stacked bars with yellow/orange palette */}
               <Bar
                 dataKey="breakfast"
@@ -400,6 +448,12 @@ export function WeeklyChart({
                 fill={`url(#${MEAL_GRADIENT_IDS.dinner})`}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={36}
+                onClick={(_data, index, event) => {
+                  if (event && index !== undefined && chartData[index]) {
+                    handleBarClick(chartData[index], event as unknown as React.MouseEvent);
+                  }
+                }}
+                style={{ cursor: 'pointer' }}
               >
                 {chartData.map((entry, index) => (
                   <Cell
@@ -425,6 +479,20 @@ export function WeeklyChart({
               )}
             </ComposedChart>
           </ResponsiveContainer>
+
+          {/* Custom popover */}
+          {selectedDay && (
+            <div
+              ref={popoverRef}
+              className="absolute z-50"
+              style={{
+                left: Math.min(Math.max(popoverPosition.x - 90, 10), chartContainerRef.current ? chartContainerRef.current.offsetWidth - 200 : 100),
+                top: Math.max(popoverPosition.y - 180, 10),
+              }}
+            >
+              {renderPopoverContent(selectedDay)}
+            </div>
+          )}
         </div>
 
         {/* MPS dots below chart - aligned with bars */}

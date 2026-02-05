@@ -124,11 +124,18 @@ export function FoodEntryEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md max-h-[70vh] overflow-y-auto"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        style={{
+          top: '5%',
+          transform: 'translateX(-50%)',
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Edit Entry</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-2">
           <div className="space-y-2">
             <label className="text-sm font-medium">Food Name</label>
             <Input

@@ -218,30 +218,13 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
         />
       )}
 
-      {/* Option buttons - below the main button */}
+      {/* Option buttons - to the left of the main button */}
       {isExpanded && (
         <div
           ref={optionsRef}
-          className="fixed top-[4.5rem] right-4 z-50 flex flex-col gap-3 items-end"
+          className="fixed top-4 right-20 z-50 flex flex-row gap-3 items-center safe-area-inset-top"
         >
-          {/* Camera option */}
-          <button
-            type="button"
-            className={cn(
-              'h-12 w-12 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center',
-              selectedOption === 'camera'
-                ? 'bg-primary text-primary-foreground scale-110 ring-2 ring-primary ring-offset-2'
-                : 'bg-secondary text-secondary-foreground'
-            )}
-            onClick={(e) => handleOptionClick('camera', e)}
-            onTouchEnd={(e) => handleOptionClick('camera', e)}
-            onMouseEnter={() => setSelectedOption('camera')}
-            onMouseLeave={() => setSelectedOption(null)}
-          >
-            <Camera className="h-5 w-5" />
-          </button>
-
-          {/* Gallery option */}
+          {/* Gallery option (leftmost) */}
           <button
             type="button"
             className={cn(
@@ -256,6 +239,23 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
             onMouseLeave={() => setSelectedOption(null)}
           >
             <ImageIcon className="h-5 w-5" />
+          </button>
+
+          {/* Camera option (next to plus button) */}
+          <button
+            type="button"
+            className={cn(
+              'h-12 w-12 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center',
+              selectedOption === 'camera'
+                ? 'bg-primary text-primary-foreground scale-110 ring-2 ring-primary ring-offset-2'
+                : 'bg-secondary text-secondary-foreground'
+            )}
+            onClick={(e) => handleOptionClick('camera', e)}
+            onTouchEnd={(e) => handleOptionClick('camera', e)}
+            onMouseEnter={() => setSelectedOption('camera')}
+            onMouseLeave={() => setSelectedOption(null)}
+          >
+            <Camera className="h-5 w-5" />
           </button>
         </div>
       )}

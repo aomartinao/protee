@@ -244,7 +244,10 @@ export const useStore = create<AppState>()(
       name: 'protee-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        settings: state.settings,
+        settings: {
+          ...state.settings,
+          claudeApiKey: undefined, // Never persist API key to localStorage (security)
+        },
       }),
     }
   )

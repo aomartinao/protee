@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import {
   format,
   startOfMonth,
@@ -9,7 +9,8 @@ import {
   addMonths,
   getDay,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Zap, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { calculateMPSHits } from '@/lib/utils';
@@ -26,6 +27,15 @@ interface CalendarViewProps {
   onNextMonth: () => void;
 }
 
+interface SelectedDayData {
+  date: string;
+  protein: number;
+  calories: number;
+  mpsHits: number;
+  goal: number;
+  goalMet: boolean;
+}
+
 export function CalendarView({
   entries,
   goals,
@@ -36,6 +46,56 @@ export function CalendarView({
   onPrevMonth,
   onNextMonth,
 }: CalendarViewProps) {
+  const navigate = useNavigate();
+  const [selectedDay, setSelectedDay] = useState<SelectedDayData | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    if (!selectedDay) return;
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setSelectedDay(null);
+      }
+    };
+
+    // Small delay to avoid immediate close on the same tap that opened it
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [selectedDay]);
+
+  // Close popover when month changes
+  useEffect(() => {
+    setSelectedDay(null);
+  }, [monthOffset]);
+
+  const handleDayClick = (dayData: SelectedDayData, event: React.MouseEvent) => {
+    const calendarRect = calendarRef.current?.getBoundingClientRect();
+    if (!calendarRect) return;
+
+    const x = event.clientX - calendarRect.left;
+    const y = event.clientY - calendarRect.top;
+
+    setPopoverPosition({ x, y });
+    setSelectedDay(dayData);
+  };
+
+  const handleViewDay = (dateStr: string) => {
+    setSelectedDay(null);
+    navigate(`/?date=${dateStr}`);
+  };
+
   // Calculate current month based on offset
   const currentMonth = useMemo(() => {
     return addMonths(new Date(), monthOffset);
@@ -177,7 +237,7 @@ export function CalendarView({
       </div>
 
       {/* Calendar */}
-      <div className="bg-card rounded-2xl p-4 shadow-sm">
+      <div className="bg-card rounded-2xl p-4 shadow-sm relative" ref={calendarRef}>
         {/* Weekday headers */}
         <div className="grid grid-cols-7 gap-1 mb-2">
           {weekDays.map((day, i) => (
@@ -199,6 +259,7 @@ export function CalendarView({
             const dateStr = format(day, 'yyyy-MM-dd');
             const data = dailyData.get(dateStr);
             const protein = data?.protein || 0;
+            const calories = data?.calories || 0;
             const mpsHits = data?.mpsHits || 0;
             const goal = goals.get(dateStr) || defaultGoal;
             const goalMet = protein >= goal;
@@ -208,8 +269,16 @@ export function CalendarView({
             return (
               <div
                 key={dateStr}
+                onClick={(e) => handleDayClick({
+                  date: dateStr,
+                  protein,
+                  calories,
+                  mpsHits,
+                  goal,
+                  goalMet,
+                }, e)}
                 className={cn(
-                  'aspect-square flex flex-col items-center justify-center rounded-xl text-sm relative transition-colors',
+                  'aspect-square flex flex-col items-center justify-center rounded-xl text-sm relative transition-colors cursor-pointer active:scale-95',
                   isToday && 'ring-2 ring-primary ring-offset-1',
                   goalMet && 'bg-green-100',
                   !isSameMonth(day, currentMonth) && 'opacity-40'
@@ -239,6 +308,53 @@ export function CalendarView({
             );
           })}
         </div>
+
+        {/* Popover */}
+        {selectedDay && (
+          <div
+            ref={popoverRef}
+            className="absolute z-50"
+            style={{
+              left: Math.min(Math.max(popoverPosition.x - 90, 10), calendarRef.current ? calendarRef.current.offsetWidth - 200 : 100),
+              top: Math.max(popoverPosition.y - 160, 10),
+            }}
+          >
+            <div className="bg-card/95 backdrop-blur-sm border border-border/50 rounded-xl p-3 shadow-xl text-sm min-w-[180px]">
+              <p className="font-semibold mb-2">{format(new Date(selectedDay.date), 'EEEE, MMM d')}</p>
+              <div className="space-y-1">
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Protein</span>
+                  <span className={cn("font-bold", selectedDay.goalMet ? "text-green-600" : "text-primary")}>
+                    {selectedDay.protein}g / {selectedDay.goal}g
+                  </span>
+                </div>
+                {selectedDay.calories > 0 && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Calories</span>
+                    <span className="font-medium text-orange-600">{selectedDay.calories} kcal</span>
+                  </div>
+                )}
+                {mpsTrackingEnabled && selectedDay.mpsHits > 0 && (
+                  <div className="flex justify-between gap-4 items-center">
+                    <span className="text-muted-foreground">MPS hits</span>
+                    <span className="font-medium text-purple-600">{selectedDay.mpsHits}</span>
+                  </div>
+                )}
+                {selectedDay.goalMet && (
+                  <div className="text-xs text-green-600 font-medium pt-1">Goal met!</div>
+                )}
+                {/* View day button */}
+                <button
+                  onClick={() => handleViewDay(selectedDay.date)}
+                  className="w-full mt-2 pt-2 border-t border-border/50 flex items-center justify-center gap-1.5 text-primary hover:text-primary/80 transition-colors"
+                >
+                  <span className="text-xs font-medium">View day</span>
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Legend */}

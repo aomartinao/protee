@@ -11,7 +11,7 @@ const navItems = [
 
 export function MobileNav() {
   return (
-    <nav className="fixed bottom-4 left-4 right-4 z-50 floating-nav safe-area-inset-bottom">
+    <nav className="fixed bottom-4 left-4 right-4 z-50 floating-nav">
       <div className="flex items-center justify-around h-14 px-2">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink

@@ -2,47 +2,40 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { debugCloudEntries, debugLocalEntries, clearSyncMeta, fullSync } from './services/sync';
-import { useAuthStore } from './store/useAuthStore';
 
-// Expose debug functions on window for console testing
-declare global {
-  interface Window {
-    proteeDebug: {
-      checkCloud: () => Promise<void>;
-      checkLocal: () => Promise<void>;
-      clearSyncMeta: () => Promise<void>;
-      forceSync: () => Promise<void>;
-      getUserId: () => string | null;
-    };
-  }
+// Debug functions only available in development mode
+if (import.meta.env.DEV) {
+  // Dynamic import to avoid bundling debug code in production
+  import('./services/sync').then(({ debugCloudEntries, debugLocalEntries, clearSyncMeta, fullSync }) => {
+    import('./store/useAuthStore').then(({ useAuthStore }) => {
+      (window as Window & { proteeDebug?: unknown }).proteeDebug = {
+        checkCloud: async () => {
+          const userId = useAuthStore.getState().user?.id;
+          if (!userId) {
+            console.log('[Debug] Not logged in');
+            return;
+          }
+          await debugCloudEntries(userId);
+        },
+        checkLocal: debugLocalEntries,
+        clearSyncMeta: clearSyncMeta,
+        forceSync: async () => {
+          const userId = useAuthStore.getState().user?.id;
+          if (!userId) {
+            console.log('[Debug] Not logged in');
+            return;
+          }
+          await clearSyncMeta();
+          const result = await fullSync(userId);
+          console.log('[Debug] Force sync result:', result);
+        },
+        getUserId: () => useAuthStore.getState().user?.id || null,
+      };
+
+      console.log('[Protee] Debug functions available: window.proteeDebug.checkCloud(), checkLocal(), clearSyncMeta(), forceSync(), getUserId()');
+    });
+  });
 }
-
-window.proteeDebug = {
-  checkCloud: async () => {
-    const userId = useAuthStore.getState().user?.id;
-    if (!userId) {
-      console.log('[Debug] Not logged in');
-      return;
-    }
-    await debugCloudEntries(userId);
-  },
-  checkLocal: debugLocalEntries,
-  clearSyncMeta: clearSyncMeta,
-  forceSync: async () => {
-    const userId = useAuthStore.getState().user?.id;
-    if (!userId) {
-      console.log('[Debug] Not logged in');
-      return;
-    }
-    await clearSyncMeta();
-    const result = await fullSync(userId);
-    console.log('[Debug] Force sync result:', result);
-  },
-  getUserId: () => useAuthStore.getState().user?.id || null,
-};
-
-console.log('[Protee] Debug functions available: window.proteeDebug.checkCloud(), checkLocal(), clearSyncMeta(), forceSync(), getUserId()');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
