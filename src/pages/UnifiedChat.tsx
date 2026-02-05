@@ -684,31 +684,15 @@ export function UnifiedChat() {
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* Compact progress bar */}
-      <div className="px-4 py-2 border-b bg-background flex-shrink-0">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-primary">{insights.todayProtein}g</span>
-            <span className="text-muted-foreground"> / {settings.defaultGoal}g</span>
-            {/* Progress feedback animation */}
-            {progressFeedback !== null && (
-              <span className="text-green-600 font-semibold text-xs animate-in fade-in slide-in-from-left-2 duration-300">
-                +{progressFeedback}g
-              </span>
-            )}
-          </div>
-          {insights.currentStreak > 0 && (
-            <span className="text-orange-500 text-xs">🔥 {insights.currentStreak}d</span>
-          )}
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative">
+      {/* Progress feedback floating indicator */}
+      {progressFeedback !== null && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20">
+          <span className="text-green-600 font-bold text-lg animate-in fade-in zoom-in slide-in-from-bottom-2 duration-300 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
+            +{progressFeedback}g
+          </span>
         </div>
-        <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
-          <div
-            className={`h-full bg-primary rounded-full transition-all duration-500 ${progressFeedback !== null ? 'animate-pulse' : ''}`}
-            style={{ width: `${Math.min(100, insights.percentComplete)}%` }}
-          />
-        </div>
-      </div>
+      )}
 
       {/* Messages */}
       <div

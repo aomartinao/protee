@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { useUpdateAvailable } from '@/hooks/useUpdateAvailable';
+import { useProgressInsights } from '@/hooks/useProgressInsights';
+import { useSettings } from '@/hooks/useProteinData';
 import { clearAllChatMessages } from '@/db';
 import {
   AlertDialog,
@@ -32,6 +34,11 @@ export function Header() {
   const [advisorClearDialogOpen, setAdvisorClearDialogOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'current'>('idle');
+
+  // Progress data for Coach page
+  const isCoachPage = location.pathname === '/coach' || location.pathname === '/chat' || location.pathname === '/advisor';
+  const insights = useProgressInsights();
+  const { settings } = useSettings();
 
   const handleCheckForUpdates = async () => {
     setIsCheckingUpdate(true);
@@ -79,7 +86,6 @@ export function Header() {
   };
 
   const isSettingsPage = location.pathname === '/settings';
-  const isCoachPage = location.pathname === '/coach' || location.pathname === '/chat' || location.pathname === '/advisor';
   const isDashboardPage = location.pathname === '/';
 
   const handleClearChat = async () => {
@@ -210,15 +216,47 @@ export function Header() {
     </Popover>
   );
 
+  // Progress bar color: red (0%) → amber (50%) → green (100%)
+  const getProgressColor = () => {
+    const percent = insights.percentComplete;
+    if (percent >= 100) return 'bg-green-500';
+    if (percent >= 75) return 'bg-lime-500';
+    if (percent >= 50) return 'bg-amber-500';
+    if (percent >= 25) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-background safe-area-inset-top">
         <div className="flex h-14 items-center justify-between px-4">
-          {isDashboardPage ? renderDashboardTitle() : (
+          {isDashboardPage ? renderDashboardTitle() : isCoachPage ? (
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-semibold text-foreground">Coach</h1>
+              <div className="flex items-baseline gap-1 text-sm">
+                <span className={`font-semibold ${insights.percentComplete >= 100 ? 'text-green-600' : 'text-primary'}`}>
+                  {insights.todayProtein}g
+                </span>
+                <span className="text-muted-foreground">/ {settings.defaultGoal}g</span>
+                {insights.currentStreak > 0 && (
+                  <span className="ml-1 text-orange-500 text-xs">🔥{insights.currentStreak}</span>
+                )}
+              </div>
+            </div>
+          ) : (
             <h1 className="text-xl font-semibold text-foreground">{getTitle()}</h1>
           )}
           {renderHeaderAction()}
         </div>
+        {/* Progress bar for Coach page */}
+        {isCoachPage && (
+          <div className="h-2 bg-gray-200 dark:bg-gray-700">
+            <div
+              className={`h-full transition-all duration-500 ${getProgressColor()}`}
+              style={{ width: `${Math.min(100, insights.percentComplete)}%` }}
+            />
+          </div>
+        )}
       </header>
 
       <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
