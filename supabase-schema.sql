@@ -515,3 +515,46 @@ insert into admin_users (user_id)
 select id from auth.users where email = 'martin.holecko@gmail.com'
 on conflict (user_id) do nothing;
 */
+
+-- ============================================
+-- SCHEDULED CLEANUP
+-- Cleans up old chat messages to prevent bloat
+-- ============================================
+
+-- Enable pg_cron extension for scheduled jobs
+create extension if not exists pg_cron;
+grant usage on schema cron to postgres;
+
+-- Function to clean up old chat messages (older than 30 days)
+create or replace function cleanup_old_chat_messages()
+returns integer
+language plpgsql
+security definer
+as $$
+declare
+  deleted_count integer;
+begin
+  with deleted as (
+    delete from chat_messages
+    where created_at < now() - interval '30 days'
+    returning id
+  )
+  select count(*) into deleted_count from deleted;
+
+  if deleted_count > 0 then
+    raise notice 'Chat messages cleanup: deleted % messages older than 30 days', deleted_count;
+  end if;
+
+  return deleted_count;
+end;
+$$;
+
+comment on function cleanup_old_chat_messages() is
+  'Deletes chat messages older than 30 days. Runs daily via pg_cron at 3:00 AM UTC.';
+
+-- Schedule cleanup to run daily at 3:00 AM UTC
+select cron.schedule(
+  'cleanup-old-chat-messages',
+  '0 3 * * *',
+  $$select cleanup_old_chat_messages()$$
+);
