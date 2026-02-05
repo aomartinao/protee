@@ -9,7 +9,7 @@ import { QuickLogShortcuts } from '@/components/chat/QuickLogShortcuts';
 import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
-import { useSettings, useRecentEntries } from '@/hooks/useProteinData';
+import { useSettings, useRecentEntries, useRecentEntriesIncludingDeleted } from '@/hooks/useProteinData';
 import { useProgressInsights } from '@/hooks/useProgressInsights';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
@@ -44,22 +44,25 @@ export function UnifiedChat() {
   const insights = useProgressInsights();
   const nickname = getNickname(user?.email);
 
-  // Get food entries from recent days to build lookup map
-  const recentEntries = useRecentEntries(CHAT_HISTORY_DAYS);
+  // Get food entries from recent days - two separate hooks:
+  // 1. Including deleted for lookup map (to show cancelled state)
+  // 2. Excluding deleted for MPS calculation
+  const allRecentEntries = useRecentEntriesIncludingDeleted(CHAT_HISTORY_DAYS);
+  const activeRecentEntries = useRecentEntries(CHAT_HISTORY_DAYS);
 
-  // Build lookup map of entries by syncId (for messages that only have foodEntrySyncId)
+  // Build lookup map of entries by syncId (includes deleted entries for cancelled state)
   const entriesBySyncId = useMemo(() => {
     const map = new Map<string, FoodEntry>();
-    for (const entry of recentEntries) {
+    for (const entry of allRecentEntries) {
       if (entry.syncId) {
         map.set(entry.syncId, entry);
       }
     }
     return map;
-  }, [recentEntries]);
+  }, [allRecentEntries]);
 
-  // Calculate which entries are MPS hits (today only)
-  const todayEntries = recentEntries.filter(e => e.date === getToday());
+  // Calculate which entries are MPS hits (today only, excludes deleted)
+  const todayEntries = activeRecentEntries.filter(e => e.date === getToday());
   const mpsHitSyncIds = useMemo(() => {
     const hits = calculateMPSHits(todayEntries);
     return new Set(hits.map(h => h.syncId).filter(Boolean));
