@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { DailyProgress } from '@/components/tracking/DailyProgress';
 import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { useSettings, useStreak, useRecentEntries, useDeleteEntry } from '@/hooks/useProteinData';
+import { useTodaySleep, useTrainingSessions7Days } from '@/hooks/useTrackingData';
 import { useStore } from '@/store/useStore';
 import { updateFoodEntry } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
@@ -40,6 +41,11 @@ export function Dashboard() {
   const streak = useStreak(recentEntries, settings.defaultGoal);
   const deleteEntry = useDeleteEntry();
   const { setDashboardState } = useStore();
+  const todaySleep = useTodaySleep();
+  const weekTraining = useTrainingSessions7Days();
+
+  const todaySleepMinutes = todaySleep.reduce((sum, e) => sum + e.duration, 0);
+  const weekTrainingSessions = weekTraining.length;
 
   // Edit dialog state
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
@@ -125,6 +131,12 @@ export function Dashboard() {
         calorieGoal={settings.calorieGoal}
         calorieTrackingEnabled={settings.calorieTrackingEnabled}
         mpsTrackingEnabled={settings.mpsTrackingEnabled}
+        sleepTrackingEnabled={settings.sleepTrackingEnabled}
+        trainingTrackingEnabled={settings.trainingTrackingEnabled}
+        sleepGoalMinutes={settings.sleepGoalMinutes}
+        trainingGoalPerWeek={settings.trainingGoalPerWeek}
+        todaySleepMinutes={todaySleepMinutes}
+        weekTrainingSessions={weekTrainingSessions}
         streak={streak}
         selectedDate={selectedDate}
         isToday={isSelectedToday}

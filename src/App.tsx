@@ -5,6 +5,7 @@ import { Dashboard } from '@/pages/Dashboard';
 import { UnifiedChat } from '@/pages/UnifiedChat';
 import { History } from '@/pages/History';
 import { Settings } from '@/pages/Settings';
+import { Reports } from '@/pages/Reports';
 import { SwipeProvider } from '@/context/SwipeContext';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -33,6 +34,7 @@ function App() {
             <Route path="chat" element={<Navigate to="/coach" replace />} />
             <Route path="advisor" element={<Navigate to="/coach" replace />} />
             <Route path="history" element={<ErrorBoundary><History /></ErrorBoundary>} />
+            <Route path="reports" element={<ErrorBoundary><Reports /></ErrorBoundary>} />
             <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
           </Route>
         </Routes>

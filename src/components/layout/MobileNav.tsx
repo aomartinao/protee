@@ -1,4 +1,4 @@
-import { Home, MessageSquare, Calendar, Settings } from 'lucide-react';
+import { Home, MessageSquare, Calendar, BarChart3, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -6,6 +6,7 @@ const navItems = [
   { to: '/', icon: Home, label: 'Today' },
   { to: '/coach', icon: MessageSquare, label: 'Coach' },
   { to: '/history', icon: Calendar, label: 'History' },
+  { to: '/reports', icon: BarChart3, label: 'Reports' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 

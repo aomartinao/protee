@@ -1,66 +1,78 @@
-# GRRROMODE: AI/Coach Sleep & Training
+# GRRROMODE: Dashboard & Reports UI
 
-**GitHub Issue:** https://github.com/aomartinao/protee/issues/42
-**Branch:** `grrromode-coach-pillars`
+**GitHub Issue:** https://github.com/aomartinao/protee/issues/44
+**Branch:** `grrromode-dashboard`
 
 ## Your Mission
 
-Extend the AI coach to understand and respond to sleep and training logging requests.
+Create the 3-pillar dashboard view and Reports page for visualizing progress across protein, sleep, and training.
 
 ## Dependencies
 
-**BLOCKED BY:** Issue #41 (Data Layer) must be merged first for type definitions.
+**BLOCKED BY:** Issue #41 (Data Layer) - for type definitions and db functions
 
-When Data Layer is ready, merge it into your branch:
+When Data Layer is ready:
 ```bash
 git fetch origin && git merge origin/grrromode-data-layer
 ```
 
 ## Tasks
 
-1. **Add new types** (`src/services/ai/unified.ts`)
-   - Add `SleepContext` interface: sleepLastNight?, sleepAvg7Days?, sleepGoal?
-   - Add `TrainingContext` interface: trainingSessions7Days?, trainingGoalPerWeek?, daysSinceLastTraining?, lastMuscleGroup?
-   - Add `log_sleep` and `log_training` to `MessageIntent`
-   - Add `SleepAnalysis` interface: duration, bedtime?, wakeTime?, quality?
-   - Add `TrainingAnalysis` interface: muscleGroup, duration?, notes?
-   - Add new coaching types: `sleep_tip`, `sleep_celebration`, `training_progress`, `rest_day_reminder`
+1. **Create PillarCard** (`src/components/tracking/PillarCard.tsx`)
+   - Reusable card showing: icon, title, current/goal, subtitle
+   - Props: icon, iconColor, iconBgColor, title, current, goal, unit, subtitle, isGoalMet, onClick
+   - Show check/alert icon based on goal status
 
-2. **Update system prompt** (`buildUnifiedSystemPrompt`)
-   - Add sleep detection rules (when sleepTrackingEnabled)
-   - Add training detection rules (when trainingTrackingEnabled)
-   - Examples: "spal jsem 7 hodin" → log_sleep, "dělal jsem nohy" → log_training
+2. **Create WeeklyPillarChart** (`src/components/tracking/WeeklyPillarChart.tsx`)
+   - Bar chart showing last 7 days
+   - Props: data (date, value, goal)[], label, unit, color, bgColor
+   - Show goal line, highlight days that met goal
+   - Display average and goals met count
 
-3. **Add context building**
-   - Accept `sleepContext` and `trainingContext` in `UnifiedContext`
-   - Include in system prompt when available
+3. **Create Reports page** (`src/pages/Reports.tsx`)
+   - Time range toggle: 7 days / 30 days
+   - Summary cards for each pillar (using PillarCard)
+   - Weekly charts for protein and sleep
+   - Training breakdown by muscle group
+   - Load data using db helper functions
 
-4. **Parse new responses** (`parseUnifiedResponse`)
-   - Handle `log_sleep` intent → return `SleepAnalysis`
-   - Handle `log_training` intent → return `TrainingAnalysis`
+4. **Update Dashboard** (`src/pages/Dashboard.tsx`)
+   - Add sleep and training pillar cards below protein ring
+   - Only show when respective tracking is enabled
+   - Show on "Today" view only
+   - Cards link to Coach for logging
 
-## Example User Messages
+5. **Update Navigation**
+   - Add Reports to MobileNav (`src/components/layout/MobileNav.tsx`)
+   - Add Reports route to App.tsx
 
-**Sleep:**
-- "spal jsem 7 hodin"
-- "šel jsem spát v 11, vstal v 7"
-- "dneska jen 5 hodin spánku"
+## Dashboard Layout (Today view)
 
-**Training:**
-- "dělal jsem nohy"
-- "byl jsem v gymu na push"
-- "rest day"
-- "cardio 30 minut"
+```
+┌─────────────────────────────┐
+│     [Protein Ring]          │
+│      150g / 180g            │
+├─────────────────────────────┤
+│  ┌─────────┐  ┌─────────┐   │
+│  │ 😴 Sleep │  │ 🏋️ Train │  │
+│  │ 7h / 8h │  │  2 / 3   │  │
+│  │  good   │  │  legs    │  │
+│  └─────────┘  └─────────┘   │
+├─────────────────────────────┤
+│     [Food entries list]     │
+└─────────────────────────────┘
+```
 
 ## Acceptance Criteria
 
 - [ ] TypeScript compiles without errors
-- [ ] AI correctly identifies sleep/training messages
-- [ ] Returns properly structured analysis objects
-- [ ] Respects enabled/disabled flags for each pillar
+- [ ] Dashboard shows all 3 pillars when enabled
+- [ ] Reports page loads and displays data
+- [ ] Charts render correctly
+- [ ] Navigation works
 
 ## When Done
 
-1. Commit with message: `feat(grrromode): Add sleep and training intents to AI coach`
-2. Push branch: `git push -u origin grrromode-coach-pillars`
-3. Create PR linked to issue #42
+1. Commit with message: `feat(grrromode): Add Dashboard and Reports UI`
+2. Push branch: `git push -u origin grrromode-dashboard`
+3. Create PR linked to issue #44

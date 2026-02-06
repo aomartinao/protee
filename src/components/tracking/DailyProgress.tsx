@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { Flame, Dumbbell, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { Flame, Dumbbell, ChevronLeft, ChevronRight, History, Moon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { ProgressRing } from './ProgressRing';
+import { PillarCard } from './PillarCard';
 import { Button } from '@/components/ui/button';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -44,6 +45,12 @@ interface DailyProgressProps {
   calorieGoal?: number;
   calorieTrackingEnabled?: boolean;
   mpsTrackingEnabled?: boolean;
+  sleepTrackingEnabled?: boolean;
+  trainingTrackingEnabled?: boolean;
+  sleepGoalMinutes?: number;
+  trainingGoalPerWeek?: number;
+  todaySleepMinutes?: number;
+  weekTrainingSessions?: number;
   streak: StreakInfo;
   selectedDate: Date;
   isToday: boolean;
@@ -60,6 +67,12 @@ export function DailyProgress({
   calorieGoal,
   calorieTrackingEnabled,
   mpsTrackingEnabled,
+  sleepTrackingEnabled,
+  trainingTrackingEnabled,
+  sleepGoalMinutes = 480,
+  trainingGoalPerWeek = 4,
+  todaySleepMinutes = 0,
+  weekTrainingSessions = 0,
   streak,
   selectedDate,
   isToday,
@@ -248,6 +261,39 @@ export function DailyProgress({
         </div>
 
       </div>
+
+      {/* Pillar Cards - Sleep & Training (Today only) */}
+      {isToday && (sleepTrackingEnabled || trainingTrackingEnabled) && (
+        <div className="grid grid-cols-2 gap-3 px-4 mt-3">
+          {sleepTrackingEnabled && (
+            <PillarCard
+              icon={Moon}
+              iconColor="text-blue-500"
+              iconBgColor="bg-blue-500/15"
+              title="Sleep"
+              current={`${Math.floor(todaySleepMinutes / 60)}h${todaySleepMinutes % 60 > 0 ? ` ${todaySleepMinutes % 60}m` : ''}`}
+              goal={`${Math.floor(sleepGoalMinutes / 60)}h`}
+              subtitle="last night"
+              isGoalMet={todaySleepMinutes >= sleepGoalMinutes}
+              onClick={() => navigate('/coach')}
+            />
+          )}
+          {trainingTrackingEnabled && (
+            <PillarCard
+              icon={Dumbbell}
+              iconColor="text-emerald-500"
+              iconBgColor="bg-emerald-500/15"
+              title="Training"
+              current={`${weekTrainingSessions}`}
+              goal={`${trainingGoalPerWeek}`}
+              unit="sessions"
+              subtitle="this week"
+              isGoalMet={weekTrainingSessions >= trainingGoalPerWeek}
+              onClick={() => navigate('/coach')}
+            />
+          )}
+        </div>
+      )}
 
       {/* Bottom Section - Stats & Entries */}
       <div className="mt-6 bg-card rounded-t-3xl shadow-lg flex flex-col min-h-[40vh]">
