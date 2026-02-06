@@ -9,6 +9,7 @@ import { Reports } from '@/pages/Reports';
 import { SwipeProvider } from '@/context/SwipeContext';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { OnboardingGate } from '@/components/onboarding/OnboardingGate';
 import { initializeAuth } from '@/store/useAuthStore';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -26,18 +27,20 @@ function App() {
   return (
     <SwipeProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-            <Route path="coach" element={<ErrorBoundary><CoachPage /></ErrorBoundary>} />
-            {/* Legacy routes redirect to /coach */}
-            <Route path="chat" element={<Navigate to="/coach" replace />} />
-            <Route path="advisor" element={<Navigate to="/coach" replace />} />
-            <Route path="history" element={<ErrorBoundary><History /></ErrorBoundary>} />
-            <Route path="reports" element={<ErrorBoundary><Reports /></ErrorBoundary>} />
-            <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
-          </Route>
-        </Routes>
+        <OnboardingGate>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+              <Route path="coach" element={<ErrorBoundary><CoachPage /></ErrorBoundary>} />
+              {/* Legacy routes redirect to /coach */}
+              <Route path="chat" element={<Navigate to="/coach" replace />} />
+              <Route path="advisor" element={<Navigate to="/coach" replace />} />
+              <Route path="history" element={<ErrorBoundary><History /></ErrorBoundary>} />
+              <Route path="reports" element={<ErrorBoundary><Reports /></ErrorBoundary>} />
+              <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+            </Route>
+          </Routes>
+        </OnboardingGate>
       </BrowserRouter>
       <Toaster />
       <Analytics />

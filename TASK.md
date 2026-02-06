@@ -1,15 +1,15 @@
-# GRRROMODE: Dashboard & Reports UI
+# GRRROMODE: Onboarding & Settings
 
-**GitHub Issue:** https://github.com/aomartinao/protee/issues/44
-**Branch:** `grrromode-dashboard`
+**GitHub Issue:** https://github.com/aomartinao/protee/issues/45
+**Branch:** `grrromode-onboarding`
 
 ## Your Mission
 
-Create the 3-pillar dashboard view and Reports page for visualizing progress across protein, sleep, and training.
+Create the onboarding wizard for new users and add sleep/training settings.
 
 ## Dependencies
 
-**BLOCKED BY:** Issue #41 (Data Layer) - for type definitions and db functions
+**BLOCKED BY:** Issue #41 (Data Layer) - for settings type definitions
 
 When Data Layer is ready:
 ```bash
@@ -18,61 +18,72 @@ git fetch origin && git merge origin/grrromode-data-layer
 
 ## Tasks
 
-1. **Create PillarCard** (`src/components/tracking/PillarCard.tsx`)
-   - Reusable card showing: icon, title, current/goal, subtitle
-   - Props: icon, iconColor, iconBgColor, title, current, goal, unit, subtitle, isGoalMet, onClick
-   - Show check/alert icon based on goal status
+1. **Create OnboardingStep** (`src/components/onboarding/OnboardingStep.tsx`)
+   - Reusable step wrapper: title, description, children
+   - Centered layout with consistent styling
 
-2. **Create WeeklyPillarChart** (`src/components/tracking/WeeklyPillarChart.tsx`)
-   - Bar chart showing last 7 days
-   - Props: data (date, value, goal)[], label, unit, color, bgColor
-   - Show goal line, highlight days that met goal
-   - Display average and goals met count
+2. **Create Onboarding page** (`src/pages/Onboarding.tsx`)
+   - Multi-step wizard with progress indicator
+   - Steps: welcome, protein, sleep, training, complete
+   - State for each setting (proteinGoal, sleepEnabled, sleepGoal, etc.)
+   - Skip option for users who want defaults
+   - On complete: save all settings, redirect to dashboard
 
-3. **Create Reports page** (`src/pages/Reports.tsx`)
-   - Time range toggle: 7 days / 30 days
-   - Summary cards for each pillar (using PillarCard)
-   - Weekly charts for protein and sleep
-   - Training breakdown by muscle group
-   - Load data using db helper functions
+   **Welcome Step:**
+   - Show 3 pillars: Protein, Sleep, Training
+   - Brief description of each
 
-4. **Update Dashboard** (`src/pages/Dashboard.tsx`)
-   - Add sleep and training pillar cards below protein ring
-   - Only show when respective tracking is enabled
-   - Show on "Today" view only
-   - Cards link to Coach for logging
+   **Protein Step:**
+   - Goal selector: +/- buttons, preset buttons (100, 150, 180, 200)
+   - Tip about 1.6-2.2g per kg
 
-5. **Update Navigation**
-   - Add Reports to MobileNav (`src/components/layout/MobileNav.tsx`)
-   - Add Reports route to App.tsx
+   **Sleep Step:**
+   - Enable/disable toggle
+   - If enabled: goal selector (6h, 7h, 8h, 9h)
 
-## Dashboard Layout (Today view)
+   **Training Step:**
+   - Enable/disable toggle
+   - If enabled: sessions per week (2-6)
+
+   **Complete Step:**
+   - Summary of chosen goals
+   - "Start Tracking" button
+
+3. **Update Settings** (`src/pages/Settings.tsx`)
+   - Add Sleep toggle + goal selector in Tracking section
+   - Add Training toggle + goal selector in Tracking section
+   - Add "Re-run onboarding" in Data section
+
+4. **Gate app behind onboarding** (`src/App.tsx`)
+   - Create `OnboardingGate` component
+   - Check `onboardingCompleted` setting
+   - Skip for existing users (who have data)
+   - Show Onboarding for new users
+
+## Onboarding Flow
 
 ```
-┌─────────────────────────────┐
-│     [Protein Ring]          │
-│      150g / 180g            │
-├─────────────────────────────┤
-│  ┌─────────┐  ┌─────────┐   │
-│  │ 😴 Sleep │  │ 🏋️ Train │  │
-│  │ 7h / 8h │  │  2 / 3   │  │
-│  │  good   │  │  legs    │  │
-│  └─────────┘  └─────────┘   │
-├─────────────────────────────┤
-│     [Food entries list]     │
-└─────────────────────────────┘
+[Welcome] → [Protein Goal] → [Sleep?] → [Training?] → [Complete!]
+     ↓            ↓              ↓            ↓            ↓
+   Skip ─────────────────────────────────────────────→ Dashboard
 ```
 
 ## Acceptance Criteria
 
 - [ ] TypeScript compiles without errors
-- [ ] Dashboard shows all 3 pillars when enabled
-- [ ] Reports page loads and displays data
-- [ ] Charts render correctly
-- [ ] Navigation works
+- [ ] New users see onboarding on first visit
+- [ ] Existing users skip onboarding
+- [ ] Settings save correctly
+- [ ] "Re-run onboarding" works from Settings
+- [ ] All toggles work in Settings
+
+## Important Notes
+
+- Use `window.location.href = '/'` after completing onboarding (not `navigate()`)
+- This forces the OnboardingGate to re-check settings
 
 ## When Done
 
-1. Commit with message: `feat(grrromode): Add Dashboard and Reports UI`
-2. Push branch: `git push -u origin grrromode-dashboard`
-3. Create PR linked to issue #44
+1. Commit with message: `feat(grrromode): Add Onboarding and Settings UI`
+2. Push branch: `git push -u origin grrromode-onboarding`
+3. Create PR linked to issue #45

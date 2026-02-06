@@ -9,6 +9,8 @@ import {
   Target,
   Zap,
   Dumbbell,
+  Moon,
+  RotateCcw,
   Sparkles,
   Database,
   RefreshCw,
@@ -319,6 +321,63 @@ export function Settings() {
               />
             }
           />
+          <SettingsRow
+            icon={Moon}
+            iconColor="text-purple-400"
+            label="Sleep"
+            description={settings.sleepTrackingEnabled ? `Goal: ${(settings.sleepGoalMinutes || 480) / 60}h per night` : 'Disabled'}
+            action={
+              <div className="flex items-center gap-2">
+                {settings.sleepTrackingEnabled && (
+                  <select
+                    value={settings.sleepGoalMinutes || 480}
+                    onChange={(e) => updateSettings({ sleepGoalMinutes: parseInt(e.target.value, 10) })}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-muted text-sm rounded-lg px-2 py-1.5 border-0 focus:ring-2 focus:ring-primary"
+                  >
+                    <option value={360}>6h</option>
+                    <option value={420}>7h</option>
+                    <option value={480}>8h</option>
+                    <option value={540}>9h</option>
+                  </select>
+                )}
+                <Toggle
+                  enabled={!!settings.sleepTrackingEnabled}
+                  onChange={() => updateSettings({ sleepTrackingEnabled: !settings.sleepTrackingEnabled })}
+                  size="small"
+                />
+              </div>
+            }
+          />
+          <SettingsRow
+            icon={Dumbbell}
+            iconColor="text-emerald-500"
+            label="Training"
+            description={settings.trainingTrackingEnabled ? `Goal: ${settings.trainingGoalPerWeek || 3} sessions/week` : 'Disabled'}
+            action={
+              <div className="flex items-center gap-2">
+                {settings.trainingTrackingEnabled && (
+                  <select
+                    value={settings.trainingGoalPerWeek || 3}
+                    onChange={(e) => updateSettings({ trainingGoalPerWeek: parseInt(e.target.value, 10) })}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-muted text-sm rounded-lg px-2 py-1.5 border-0 focus:ring-2 focus:ring-primary"
+                  >
+                    <option value={2}>2×</option>
+                    <option value={3}>3×</option>
+                    <option value={4}>4×</option>
+                    <option value={5}>5×</option>
+                    <option value={6}>6×</option>
+                  </select>
+                )}
+                <Toggle
+                  enabled={!!settings.trainingTrackingEnabled}
+                  onChange={() => updateSettings({ trainingTrackingEnabled: !settings.trainingTrackingEnabled })}
+                  size="small"
+                />
+              </div>
+            }
+          />
         </SettingsSection>
 
         {/* Locale Settings */}
@@ -442,6 +501,16 @@ export function Settings() {
                 {storageStats ? formatBytes(storageStats.total) : '–'}
               </span>
             }
+          />
+          <SettingsRow
+            icon={RotateCcw}
+            iconColor="text-muted-foreground"
+            label="Re-run Onboarding"
+            description="Set up your goals again"
+            onClick={async () => {
+              await updateSettings({ onboardingCompleted: false });
+              window.location.href = '/';
+            }}
           />
           <SettingsRow
             icon={Trash2}
