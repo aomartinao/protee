@@ -41,7 +41,7 @@
 - Challenge your own work before presenting it
 
 ### 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
+- When given a bug report: use the `/bugfix` skill (Prove It Pattern — reproduce with test, fix, confirm)
 - Point at logs, errors, failing tests — then resolve them
 - Go fix failing CI tests without being told how
 - **Exception:** See Sensitive Zones below
@@ -66,7 +66,8 @@ For **quick tasks under 30 minutes**: Skip formal tracking, just execute and sum
 
 ### Credentials Location
 - Database credentials are stored in `.env` (gitignored)
-- Variables: `SUPABASE_SECRET_KEY`, `DATABASE_PASSWORD`
+- Variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY`, `DATABASE_PASSWORD`
+- **If `.env` is missing or broken**, use the `/setup-env` skill to recreate it
 
 ### Security Rules — CRITICAL
 - **NEVER read or display `.env` contents** — secrets would appear in conversation logs
@@ -120,6 +121,7 @@ These areas require explicit user approval before modification:
 
 ### Always Do
 - Run `git status` before any commit
+- **Always `git add` specific files by name** — NEVER use `git add -A` or `git add .` (risk of committing `.env` or other secrets)
 - Commit frequently with descriptive messages
 - Use conventional commit format: `feat:`, `fix:`, `refactor:`, `docs:`
 - Stay on your assigned branch — don't switch branches
@@ -186,6 +188,14 @@ npm run build
 # Type checking
 npx tsc --noEmit
 ```
+
+### TypeScript Notes
+- `verbatimModuleSyntax` is enabled — use `import type` for type-only imports
+- Vercel build is stricter than local dev — run `npx tsc --noEmit` before pushing when asked to verify
+
+### Vercel Deployment
+- **GitHub integration** only has env vars for **Production** scope — preview deploys from branches won't have Supabase keys
+- For preview deploys with env vars, use `vercel` CLI directly: `vercel --yes`
 
 ---
 
