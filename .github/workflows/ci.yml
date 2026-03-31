@@ -103,7 +103,7 @@ jobs:
         run: npm run build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: root-dist
           path: dist/
@@ -187,7 +187,7 @@ jobs:
         run: npm run build --prefix admin
 
       - name: Upload admin build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: admin-dist
           path: admin/dist/
