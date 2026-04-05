@@ -31,13 +31,13 @@ export function ProgressRing({
 
   const gradientId = `progressGradient-${variant}`;
 
-  // Graduated colors matching coach header bar
+  // Graduated colors: warm amber shifting to ethereal glow
   const getGraduatedColors = () => {
-    if (isGoalMet) return { start: '#a3e635', end: '#84cc16' }; // lime-400 → lime-500
-    if (percentage >= 75) return { start: '#84cc16', end: '#65a30d' }; // lime-500 → lime-600
-    if (percentage >= 50) return { start: '#f59e0b', end: '#d97706' }; // amber
-    if (percentage >= 25) return { start: '#f97316', end: '#ea580c' }; // orange
-    return { start: '#ef4444', end: '#dc2626' }; // red
+    if (isGoalMet) return { start: '#a3e635', end: '#84cc16' }; // lime-400 → lime-500 for success
+    if (percentage >= 75) return { start: '#d97706', end: '#b45309' }; // amber-600 → amber-700
+    if (percentage >= 50) return { start: '#f59e0b', end: '#d97706' }; // amber-500 → amber-600
+    if (percentage >= 25) return { start: '#fbbf24', end: '#f59e0b' }; // amber-400 → amber-500
+    return { start: '#fcd34d', end: '#fbbf24' }; // amber-300 → amber-400 (no red alarm colors)
   };
   const colors = getGraduatedColors();
 
@@ -93,7 +93,7 @@ export function ProgressRing({
             <span className="text-xs text-muted-foreground mb-0.5">{label}</span>
           )}
           <span className={cn(
-            'text-4xl font-bold transition-colors duration-300',
+            'text-6xl font-semibold tracking-tighter transition-colors duration-300',
             isGoalMet ? 'text-lime-500' : 'text-foreground'
           )}>
             {Math.round(current)}

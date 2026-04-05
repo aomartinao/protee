@@ -14,15 +14,15 @@
   --color-primary-800: #92400e;
   --color-primary-900: #78350f;
 
-  /* Semantic colors - warm light theme */
-  --color-background: #f8f5f0;
-  --color-foreground: #1f2937;
-  --color-card: #ffffff;
-  --color-card-foreground: #1f2937;
+  /* Semantic colors - warm, elegant premium theme */
+  --color-background: #FAF9F6;  /* ivory */
+  --color-foreground: #1C1C1E;  /* obsidian */
+  --color-card: #FDFCF0;        /* clay 50 */
+  --color-card-foreground: #1C1C1E;
   --color-card-dark: #2d2d2d;
   --color-card-dark-foreground: #ffffff;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #1f2937;
+  --color-popover: #FDFCF0;     /* match card */
+  --color-popover-foreground: #1C1C1E;
   --color-primary-foreground: #1f2937;
   --color-secondary: #f3f0eb;
   --color-secondary-foreground: #1f2937;
@@ -37,8 +37,8 @@
   --color-ring: #f5b800;
 
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --radius-lg: 1rem;
-  --radius-md: 0.75rem;
+  --radius-lg: 1.5rem; /* 24px squircle */
+  --radius-md: 1rem;
   --radius-sm: 0.5rem;
 }
 
@@ -51,6 +51,7 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    letter-spacing: -0.02em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -104,13 +105,14 @@
   .card-white {
     background: var(--color-card);
     border-radius: var(--radius-lg);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -2px rgba(0, 0, 0, 0.02), 0 20px 25px -5px rgba(0, 0, 0, 0.03);
   }
 
   .card-dark {
     background: var(--color-card-dark);
     color: var(--color-card-dark-foreground);
     border-radius: var(--radius-lg);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -2px rgba(0, 0, 0, 0.02), 0 20px 25px -5px rgba(0, 0, 0, 0.03);
   }
 
   .card-accent {

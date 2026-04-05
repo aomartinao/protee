@@ -11,7 +11,7 @@ const navItems = [
 
 export function MobileNav() {
   return (
-    <nav className="fixed bottom-4 left-4 right-4 z-50 floating-nav">
+    <nav className="fixed bottom-4 left-4 right-4 z-50 bg-white/70 backdrop-blur-xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.05)] rounded-[24px]">
       <div className="flex items-center justify-around h-14 px-2">
         {navItems.map(({ to, icon: Icon, label, end }) => (
           <NavLink
@@ -31,9 +31,12 @@ export function MobileNav() {
               <>
                 <div className={cn(
                   'relative p-1.5 rounded-full transition-all duration-300',
-                  isActive && 'bg-amber-500/15'
+                  isActive ? 'bg-amber-500/15' : 'opacity-60'
                 )}>
-                  <Icon className={cn('h-5 w-5 transition-all duration-300', isActive && 'drop-shadow-sm')} />
+                  <Icon
+                    strokeWidth={isActive ? 2.5 : 2}
+                    className={cn('h-5 w-5 transition-all duration-300', isActive && 'drop-shadow-sm')}
+                  />
                   {isActive && <div className="absolute inset-0 rounded-full bg-amber-500/10 blur-md -z-10" />}
                 </div>
                 <span className={cn('font-medium transition-all duration-300', isActive ? 'opacity-100' : 'opacity-70')}>
